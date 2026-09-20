@@ -1,0 +1,27 @@
+node_modules/
+.next/
+out/
+build/
+coverage/
+
+.env
+.env.local
+.env.*.local
+
+public/sw.js
+public/sw.js.map
+public/swe-worker-*.js
+
+*.log
+npm-debug.log*
+.DS_Store
+.vscode/
+.idea/
+next-env.d.ts
+tsconfig.tsbuildinfo
+.claude/launch.json
+
+# Fichiers de diagnostic temporaires
+*.tmp.html
+*.tmp.log
+*.tmp

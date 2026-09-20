@@ -1,0 +1,431 @@
+@import 'tailwindcss';
+
+/* =============================================================================
+   TrackMyDex — design tokens
+
+   Direction: a dark vault, not a dashboard. The interface is deliberately
+   colourless so that card art is the only saturated thing on screen. The single
+   accent — a violet-to-azure gradient — is rationed to three jobs: progress
+   fills, the scan control, and focus rings. Nothing else gets to glow.
+
+   Two devices carry the identity:
+     .sleeve  — a missing card renders as an empty binder pocket with its number
+                embossed into it. Recessed, never a grey box with a cross.
+     .fan     — owned card art fanned like a hand in era headers.
+   ========================================================================== */
+
+@theme {
+  /* Ground and surfaces — cool navy, stepping up as elements come forward. */
+  --color-ink: #05070f;
+  --color-ink-soft: #080c18;
+  --color-slate: #0b1120;
+  --color-slate-hi: #121a2e;
+  --color-slate-press: #182240;
+
+  /* Text */
+  --color-paper: #e8ecf7;
+  --color-muted: #8792b0;
+  --color-faint: #5a6486;
+
+  /* The one accent. */
+  --color-violet: #8b5cf6;
+  --color-azure: #3b82f6;
+  --color-mint: #34d399;
+  --color-amber: #f5b544;
+  --color-rose: #f0576f;
+
+  --color-hairline: rgb(148 163 208 / 0.14);
+  --color-hairline-strong: rgb(148 163 208 / 0.26);
+
+  --radius-tile: 18px;
+  --radius-card: 22px;
+  --radius-pill: 999px;
+
+  --font-display: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, 'SFMono-Regular', monospace;
+
+  --shadow-lift: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 12px 32px -18px rgb(0 0 0 / 0.9);
+  --shadow-glow: 0 0 0 1px rgb(139 92 246 / 0.28), 0 10px 40px -12px rgb(59 130 246 / 0.45);
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+:root {
+  color-scheme: dark;
+  --nav-height: 68px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
+
+  /* Surface wash used by `body`. Overridden per theme below. */
+  --page-wash:
+    radial-gradient(120% 60% at 50% -10%, rgb(59 130 246 / 0.07), transparent 60%),
+    radial-gradient(90% 50% at 110% 5%, rgb(139 92 246 / 0.06), transparent 55%);
+}
+
+/* ---------------------------------------------------------------------------
+   Themes
+   
+   Three, because they answer three different needs rather than being variety
+   for its own sake:
+   
+     midnight (default) - the dark navy the product is designed around.
+     black            - true #000. On an OLED phone black pixels are switched
+                        off, so this is the battery-saving and highest-contrast
+                        option; the navy tint is removed entirely.
+     light            - for bright daylight, where a dark UI washes out.
+   
+   Only tokens are redefined. Every component reads tokens, so no component
+   needs to know a theme exists.
+   --------------------------------------------------------------------------- */
+
+:root[data-theme='black'] {
+  color-scheme: dark;
+  --color-ink: #000000;
+  --color-ink-soft: #050505;
+  --color-slate: #0b0b0d;
+  --color-slate-hi: #141418;
+  --color-slate-press: #1c1c22;
+  --color-paper: #f2f2f4;
+  --color-muted: #8f8f99;
+  --color-faint: #5f5f6a;
+  --color-hairline: rgb(200 200 215 / 0.13);
+  --color-hairline-strong: rgb(200 200 215 / 0.24);
+  /* No ambient wash: a gradient over true black defeats the point. */
+  --page-wash: none;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --color-ink: #f6f7fb;
+  --color-ink-soft: #eceefa;
+  --color-slate: #ffffff;
+  --color-slate-hi: #f0f2f9;
+  --color-slate-press: #e4e8f4;
+  --color-paper: #101425;
+  --color-muted: #545d78;
+  --color-faint: #7b849d;
+  --color-hairline: rgb(16 20 37 / 0.1);
+  --color-hairline-strong: rgb(16 20 37 / 0.2);
+  /* Accents darkened so they still pass contrast on white. */
+  --color-violet: #6d3ff0;
+  --color-azure: #1f6feb;
+  --color-mint: #0f9d6a;
+  --color-amber: #a86100;
+  --color-rose: #c8203f;
+  --page-wash:
+    radial-gradient(120% 60% at 50% -10%, rgb(109 63 240 / 0.07), transparent 60%),
+    radial-gradient(90% 50% at 110% 5%, rgb(31 111 235 / 0.05), transparent 55%);
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  background: var(--color-ink);
+  /* The app is a single dark surface; overscroll should not flash white. */
+  overscroll-behavior-y: none;
+  /*
+   * A horizontal swipe belongs to whatever it started on.
+   *
+   * The card rails scroll sideways, and without this a flick across one
+   * chains to the document: the whole page slides left and rubber-bands
+   * back, which on a phone feels like the layout is broken. `clip` rather
+   * than `hidden` because `hidden` on the root turns the body into a scroll
+   * container and breaks `position: sticky` inside it.
+   */
+  overscroll-behavior-x: none;
+  overflow-x: clip;
+}
+
+body {
+  background: var(--color-ink);
+  color: var(--color-paper);
+  font-family: var(--font-sans);
+  font-feature-settings: 'cv05' 1;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  min-height: 100dvh;
+  overflow-x: clip;
+}
+
+/*
+ * The page wash, as its own fixed layer.
+ *
+ * It used to be `background-attachment: fixed` on the body. Mobile browsers
+ * repaint that on every scroll frame and some treat it as reason enough to
+ * give the body a containing block, which is what made the bottom bar drift
+ * instead of staying put. A painted pseudo-element costs nothing and cannot
+ * affect layout.
+ */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: var(--page-wash);
+}
+
+/* Numbers are everywhere in this product — counts, prices, card numbers — and
+   they must not jitter when they change. */
+.tnum,
+input[type='number'],
+table {
+  font-variant-numeric: tabular-nums;
+}
+
+@layer utilities {
+  /* --- Display type ------------------------------------------------------ */
+  .type-hero {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-stretch: 112%;
+    letter-spacing: -0.03em;
+    line-height: 0.98;
+    font-size: clamp(2.25rem, 9vw, 3.5rem);
+  }
+  .type-title {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-stretch: 108%;
+    letter-spacing: -0.02em;
+    line-height: 1.08;
+    font-size: clamp(1.5rem, 5.5vw, 2rem);
+  }
+  .type-section {
+    font-family: var(--font-display);
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    font-size: 1.0625rem;
+    line-height: 1.3;
+  }
+  .type-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--color-faint);
+  }
+  .type-meta {
+    font-size: 0.8125rem;
+    line-height: 1.45;
+    color: var(--color-muted);
+  }
+  .type-code {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.02em;
+  }
+
+  /* --- Surfaces ---------------------------------------------------------- */
+  .surface {
+    background: linear-gradient(180deg, rgb(255 255 255 / 0.028), transparent 45%),
+      var(--color-slate);
+    border: 1px solid var(--color-hairline);
+    box-shadow: var(--shadow-lift);
+  }
+  .surface-flat {
+    background: var(--color-slate);
+    border: 1px solid var(--color-hairline);
+  }
+
+  /* --- Signature: the empty sleeve --------------------------------------- */
+  /* A card you do not own is a pocket in a binder, not an error state. It is
+     cut into the page rather than sitting on it, and it keeps the card number
+     so the grid still reads as a set. */
+  .sleeve {
+    position: relative;
+    background:
+      linear-gradient(160deg, rgb(255 255 255 / 0.035), transparent 42%),
+      var(--color-ink-soft);
+    border: 1px solid rgb(148 163 208 / 0.1);
+    box-shadow:
+      inset 0 1px 1px rgb(0 0 0 / 0.6),
+      inset 0 0 28px rgb(0 0 0 / 0.45);
+  }
+  .sleeve::after {
+    /* The faint diagonal is the light catching a plastic pocket. */
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(
+      108deg,
+      transparent 38%,
+      rgb(148 163 208 / 0.05) 48%,
+      transparent 58%
+    );
+    pointer-events: none;
+  }
+
+  /* --- Progress ---------------------------------------------------------- */
+  .progress-track {
+    background: rgb(148 163 208 / 0.12);
+    border-radius: var(--radius-pill);
+    overflow: hidden;
+  }
+  .progress-fill {
+    background: linear-gradient(90deg, var(--color-violet), var(--color-azure));
+    border-radius: var(--radius-pill);
+    box-shadow: 0 0 18px -4px rgb(99 102 241 / 0.8);
+    transition: width 700ms var(--ease-out);
+  }
+  .progress-fill[data-complete='true'] {
+    background: linear-gradient(90deg, var(--color-violet), var(--color-mint));
+  }
+
+  /* --- Accent text ------------------------------------------------------- */
+  .accent-gradient {
+    background: linear-gradient(100deg, var(--color-violet), var(--color-azure));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* --- Holo sheen, rationed to a badge ----------------------------------- */
+  .holo {
+    background:
+      linear-gradient(
+        115deg,
+        rgb(139 92 246 / 0.32),
+        rgb(59 130 246 / 0.22) 40%,
+        rgb(52 211 153 / 0.22) 70%,
+        rgb(139 92 246 / 0.3)
+      );
+    border: 1px solid rgb(148 163 208 / 0.24);
+  }
+
+  .hairline-t {
+    border-top: 1px solid var(--color-hairline);
+  }
+  .hairline-b {
+    border-bottom: 1px solid var(--color-hairline);
+  }
+
+  /* Safe areas: the bottom bar must clear the home indicator, and scrollable
+     content must clear the bottom bar. */
+  .pb-nav {
+    padding-bottom: calc(var(--nav-height) + var(--safe-bottom) + 20px);
+  }
+  .pt-safe {
+    padding-top: calc(var(--safe-top) + 8px);
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+
+  .snap-row {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    /* Keep a sideways flick inside the rail rather than handing it to the page. */
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: 20px;
+  }
+  .snap-row > * {
+    scroll-snap-align: start;
+    flex: 0 0 auto;
+  }
+}
+
+/* --- Focus: the accent's third and final job ------------------------------ */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-azure);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+::selection {
+  background: rgb(139 92 246 / 0.4);
+}
+
+/* --- Skeletons ------------------------------------------------------------ */
+@keyframes vault-shimmer {
+  0% {
+    background-position: -180% 0;
+  }
+  100% {
+    background-position: 180% 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgb(148 163 208 / 0.06) 25%,
+    rgb(148 163 208 / 0.13) 37%,
+    rgb(148 163 208 / 0.06) 63%
+  );
+  background-size: 260% 100%;
+  animation: vault-shimmer 1.6s linear infinite;
+  border-radius: 12px;
+}
+
+@keyframes vault-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.rise {
+  animation: vault-rise 420ms var(--ease-out) both;
+}
+
+@keyframes vault-sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+
+/* ---------------------------------------------------------------------------
+   Light-theme corrections
+   
+   A handful of effects assume a dark ground: an inner shadow reads as grime on
+   white, and black-backed price chips vanish. These are the only places a
+   component's appearance is theme-aware.
+   --------------------------------------------------------------------------- */
+:root[data-theme='light'] .sleeve {
+  background: linear-gradient(160deg, rgb(16 20 37 / 0.04), transparent 42%), var(--color-ink-soft);
+  border-color: rgb(16 20 37 / 0.1);
+  box-shadow: inset 0 1px 2px rgb(16 20 37 / 0.08);
+}
+
+:root[data-theme='light'] .surface {
+  box-shadow: 0 1px 2px rgb(16 20 37 / 0.04), 0 10px 26px -20px rgb(16 20 37 / 0.35);
+}
+
+:root[data-theme='light'] .progress-track {
+  background: rgb(16 20 37 / 0.1);
+}
+
+:root[data-theme='black'] .surface {
+  box-shadow: none;
+}

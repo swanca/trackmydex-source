@@ -1,0 +1,152 @@
+# ---------------------------------------------------------------------------
+# TrackMyDex — self-hosting stack
+#
+#   cp .env.example .env     # then fill in BETTER_AUTH_SECRET at minimum
+#   docker compose up -d     # app + postgres, migrations run automatically
+#   docker compose --profile import run --rm catalog-import
+#
+# Two services by default. No Redis, no queue broker, no object storage: the
+# application is designed so a single Postgres is the entire dependency list.
+# ---------------------------------------------------------------------------
+
+name: trackmydex
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-trackmydex}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-trackmydex}
+      POSTGRES_DB: ${POSTGRES_DB:-trackmydex}
+      # Deterministic collation so ORDER BY on card names is stable across hosts.
+      POSTGRES_INITDB_ARGS: '--locale-provider=icu --icu-locale=en-US --encoding=UTF8'
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-trackmydex} -d ${POSTGRES_DB:-trackmydex}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    # Not published by default: only the app needs to reach it. Uncomment to
+    # connect a local SQL client.
+    # ports:
+    #   - '5432:5432'
+
+  # Named `trackmydex` rather than `app` on purpose. The service name becomes
+  # a DNS alias on every network the container joins, and `app` is what most
+  # other self-hosted stacks call theirs - sharing a Docker network with one
+  # would leave a reverse proxy unable to tell them apart, silently splitting
+  # traffic between two unrelated sites.
+  trackmydex:
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgres://trackmydex:trackmydex@db:5432/trackmydex}
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?set BETTER_AUTH_SECRET in .env}
+      AUTH_ALLOW_SIGNUP: ${AUTH_ALLOW_SIGNUP:-true}
+      AUTH_REQUIRE_EMAIL_VERIFICATION: ${AUTH_REQUIRE_EMAIL_VERIFICATION:-false}
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
+      SMTP_URL: ${SMTP_URL:-}
+      SMTP_FROM: ${SMTP_FROM:-TrackMyDex <no-reply@example.com>}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      CATALOG_LANGUAGES: ${CATALOG_LANGUAGES:-en,fr,es,pt,it,ja}
+      PRICING_PROVIDERS: ${PRICING_PROVIDERS:-tcgdex}
+      DEFAULT_CURRENCY: ${DEFAULT_CURRENCY:-EUR}
+      SYNC_CONCURRENCY: ${SYNC_CONCURRENCY:-6}
+      CRON_SECRET: ${CRON_SECRET:-}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    ports:
+      - '${PORT:-3000}:3000'
+    # Migrations are applied on start, so a `docker compose up` on a fresh
+    # volume produces a working instance with no manual step.
+    command: >
+      sh -c "node_modules/.bin/tsx src/scripts/migrate.ts && node server.js"
+
+  # -------------------------------------------------------------------------
+  # One-shot catalog import. Run once after first boot; it takes 20-40 minutes
+  # and downloads roughly 24,000 cards plus translations.
+  #
+  #   docker compose --profile import run --rm catalog-import
+  # -------------------------------------------------------------------------
+  catalog-import:
+    profiles: ['import']
+    build:
+      context: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgres://trackmydex:trackmydex@db:5432/trackmydex}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?set BETTER_AUTH_SECRET in .env}
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      CATALOG_LANGUAGES: ${CATALOG_LANGUAGES:-en,fr,es,pt,it,ja}
+      SYNC_CONCURRENCY: ${SYNC_CONCURRENCY:-6}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    command: ['node_modules/.bin/tsx', 'src/scripts/sync-catalog.ts']
+
+  # -------------------------------------------------------------------------
+  # One-shot sealed product import: boxes, packs, ETBs, bundles, tins, cases.
+  # Takes seconds rather than minutes, so it is safe to re-run any time.
+  #
+  #   docker compose --profile import run --rm sealed-import
+  # -------------------------------------------------------------------------
+  sealed-import:
+    profiles: ['import']
+    build:
+      context: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgres://trackmydex:trackmydex@db:5432/trackmydex}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?set BETTER_AUTH_SECRET in .env}
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    command: ['node_modules/.bin/tsx', 'src/scripts/sync-sealed.ts']
+
+  # -------------------------------------------------------------------------
+  # Nightly price refresh and portfolio snapshot.
+  #
+  #   docker compose --profile jobs up -d
+  #
+  # Plain `sleep` loops rather than a scheduler image: one fewer moving part,
+  # and the advisory lock in the job itself makes a missed or doubled tick
+  # harmless. Prefer host cron or your platform's scheduler in production by
+  # calling POST /api/cron/<job> with CRON_SECRET.
+  # -------------------------------------------------------------------------
+  jobs:
+    profiles: ['jobs']
+    build:
+      context: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgres://trackmydex:trackmydex@db:5432/trackmydex}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?set BETTER_AUTH_SECRET in .env}
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      PRICING_PROVIDERS: ${PRICING_PROVIDERS:-tcgdex}
+      PRICE_SYNC_MAX_VARIANTS: ${PRICE_SYNC_MAX_VARIANTS:-0}
+      SYNC_CONCURRENCY: ${SYNC_CONCURRENCY:-4}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    command: >
+      sh -c "while true; do
+               node_modules/.bin/tsx src/scripts/sync-prices.ts || true;
+               node_modules/.bin/tsx src/scripts/sync-sealed.ts || true;
+               node_modules/.bin/tsx src/scripts/snapshot.ts || true;
+               sleep 86400;
+             done"
+
+volumes:
+  db-data:

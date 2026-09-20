@@ -1,0 +1,1 @@
+ALTER TABLE "user" ADD COLUMN "weekly_digest" boolean DEFAULT false NOT NULL;
