@@ -1,6 +1,6 @@
 import { getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/routing';
-import { getCurrentUser } from '@/lib/session';
+import { getCurrentUser, isAdmin } from '@/lib/session';
 import { AccountMenu } from './AccountMenu';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { Logo } from './Logo';
@@ -38,7 +38,11 @@ export async function UtilityBar() {
 
       <div className="ml-auto flex items-center gap-2">
         <LanguageSwitcher label={t('nav.language')} />
-        <AccountMenu signedIn={Boolean(user)} email={user?.email ?? null} />
+        <AccountMenu
+          signedIn={Boolean(user)}
+          isAdmin={isAdmin(user)}
+          email={user?.email ?? null}
+        />
       </div>
     </div>
   );

@@ -2,7 +2,7 @@ import { sql } from 'drizzle-orm';
 import { db, type SqlRow } from '@/db';
 import type { Currency } from '@/db/schema/enums';
 import { convert, money, type FxRates, type Money } from '@/lib/pricing/money';
-import { SUBSET_IDS } from '@/lib/catalog/subsets';
+import { SUBSET_IDS, setIdWithSubsets } from '@/lib/catalog/subsets';
 import { memoAsync } from '@/lib/memo';
 import { getFxRates } from './fx';
 
@@ -134,6 +134,17 @@ async function recentSets(cardLanguage: string, limit: number) {
   return result.rows;
 }
 
+async function namedSets(cardLanguage: string, ids: readonly string[]) {
+  const result = await db.execute<SqlRow<{ id: string; name: string }>>(sql`
+    select s.id, coalesce(st.name, s.name) as name
+    from set s
+    left join set_translation st
+      on st.set_id = s.id and st.language = ${cardLanguage}::card_language
+    where s.id = any(${sql.param(ids)}::text[])
+  `);
+  return new Map(result.rows.map((set) => [set.id, set.name]));
+}
+
 async function buildFeaturedRails(
   cardLanguage: string,
   displayCurrency: Currency,
@@ -142,10 +153,15 @@ async function buildFeaturedRails(
   const rails: FeaturedRail[] = [];
 
   const [newest] = await recentSets(cardLanguage, 1);
-  const [headline, vintage, overall] = await Promise.all([
+  const requested = ['swsh11', 'swsh7', 'swsh10.5'] as const;
+  const [headline, lostOrigin, evolvingSkies, pokemonGo, vintage, overall, setNames] = await Promise.all([
     newest ? topCards(cardLanguage, { setIds: [newest.id], limit: 12 }) : Promise.resolve([]),
+    topCards(cardLanguage, { setIds: setIdWithSubsets('swsh11'), limit: 12 }),
+    topCards(cardLanguage, { setIds: setIdWithSubsets('swsh7'), limit: 12 }),
+    topCards(cardLanguage, { setIds: setIdWithSubsets('swsh10.5'), limit: 12 }),
     topCards(cardLanguage, { setIds: ['base1'], limit: 12 }),
     topCards(cardLanguage, { limit: 12 }),
+    namedSets(cardLanguage, requested),
   ]);
 
   if (newest && headline.length > 0) {
@@ -157,15 +173,20 @@ async function buildFeaturedRails(
     });
   }
 
-  if (overall.length > 0) {
-    rails.push({
-      labelKey: 'mostValuable',
-      title: '',
-      // Not the search box: the rail already said these are the expensive
-      // ones, so "see all" should show the rest of them, not ask for a query.
-      href: '/top',
-      cards: toCards(overall, displayCurrency, rates),
-    });
+  for (const [setId, cards] of [
+    ['swsh11', lostOrigin],
+    ['swsh7', evolvingSkies],
+    ['swsh10.5', pokemonGo],
+  ] as const) {
+    const title = setNames.get(setId);
+    if (title && cards.length > 0 && newest?.id !== setId) {
+      rails.push({
+        labelKey: null,
+        title,
+        href: `/sets/${setId}`,
+        cards: toCards(cards, displayCurrency, rates),
+      });
+    }
   }
 
   if (vintage.length > 0) {
@@ -174,6 +195,17 @@ async function buildFeaturedRails(
       title: '',
       href: '/sets/base1',
       cards: toCards(vintage, displayCurrency, rates),
+    });
+  }
+
+  if (overall.length > 0) {
+    rails.push({
+      labelKey: 'mostValuable',
+      title: '',
+      // Not the search box: the rail already said these are the expensive
+      // ones, so "see all" should show the rest of them, not ask for a query.
+      href: '/top',
+      cards: toCards(overall, displayCurrency, rates),
     });
   }
 

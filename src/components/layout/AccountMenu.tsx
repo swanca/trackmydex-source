@@ -20,9 +20,11 @@ import { UserIcon } from './icons';
  */
 export function AccountMenu({
   signedIn,
+  isAdmin,
   email,
 }: {
   signedIn: boolean;
+  isAdmin: boolean;
   email?: string | null;
 }) {
   const t = useTranslations();
@@ -86,6 +88,12 @@ export function AccountMenu({
               <MenuLink href="/profile" onNavigate={() => setOpen(false)}>
                 {t('account.preferences')}
               </MenuLink>
+
+              {isAdmin ? (
+                <MenuLink href="/admin" onNavigate={() => setOpen(false)}>
+                  {t('nav.admin')}
+                </MenuLink>
+              ) : null}
 
               {/* A plain anchor, not the router: this is a file download and
                   must not be intercepted by client-side navigation. */}

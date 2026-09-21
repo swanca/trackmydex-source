@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/Button';
 import { PreferencesForm } from '@/components/profile/PreferencesForm';
 import { ThemeSwitcher } from '@/components/layout/ThemeSwitcher';
 import { DeleteAccount } from '@/components/profile/DeleteAccount';
+import { DeleteCollection } from '@/components/profile/DeleteCollection';
 
 export default async function ProfilePage({
   params,
@@ -113,6 +114,16 @@ export default async function ProfilePage({
               <Link href="/collection/import">
                 <Button variant="ghost">{t('csv.import')}</Button>
               </Link>
+            </div>
+            <div className="border-t border-hairline pt-3">
+              <p className="type-meta mb-3 text-[0.875rem]">{t('profile.deleteCollectionBody')}</p>
+              <DeleteCollection labels={{
+                action: t('profile.deleteCollection'),
+                confirm: t('profile.deleteCollectionConfirm'),
+                cancel: t('app.cancel'),
+                body: t('profile.deleteCollectionBody'),
+                done: t('profile.deleteCollectionDone'),
+              }} />
             </div>
           </Surface>
         </section>

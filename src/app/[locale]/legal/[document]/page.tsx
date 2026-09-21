@@ -22,7 +22,7 @@ import { LEGAL_DOCUMENTS, LEGAL_SECTIONS, type LegalDocument } from '@/lib/legal
  */
 
 /** Bumped by hand when the substance changes, not on every deploy. */
-const LAST_UPDATED = '2026-09-20';
+const LAST_UPDATED = '2026-09-21';
 
 export function generateStaticParams() {
   return LEGAL_DOCUMENTS.map((document) => ({ document }));
@@ -110,6 +110,20 @@ export default async function LegalPage({
             {intro}
           </p>
         ) : null}
+
+        <p className="type-meta max-w-[68ch] text-[0.875rem] leading-relaxed">
+          {t('legal.openSource')}{' '}
+          <a href="https://github.com/swanca/trackmydex-source" target="_blank" rel="noreferrer" className="font-medium text-muted underline underline-offset-2 hover:text-paper">
+            {t('app.openSource')}
+          </a>
+        </p>
+
+        <p className="type-meta max-w-[68ch] text-[0.875rem] leading-relaxed">
+          {t('legal.developer')}{' '}
+          <a href="https://github.com/swanca" target="_blank" rel="noreferrer" className="font-medium text-muted underline underline-offset-2 hover:text-paper">
+            GitHub
+          </a>
+        </p>
 
         {sections.map((section) => (
           <section key={section.id} className="max-w-[68ch] space-y-2">

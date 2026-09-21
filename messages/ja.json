@@ -2,6 +2,7 @@
   "app": {
     "name": "TrackMyDex",
     "tagline": "ポケモンTCGコレクション",
+    "openSource": "オープンソース",
     "loading": "読み込み中",
     "retry": "再試行",
     "cancel": "キャンセル",
@@ -213,6 +214,7 @@
   },
   "collection": {
     "title": "マイコレクション",
+    "totalValue": "コレクションの合計価値",
     "subtitle": "{unique} 種類 · {total} 枚",
     "empty": "まだ何もありません",
     "emptyBody": "セットや検索から追加したカードがここに表示されます。",
@@ -231,6 +233,8 @@
     "sortRecent": "追加が新しい順",
     "sortName": "名前",
     "sortNumber": "カード番号",
+    "sortPriceAscending": "価格の安い順",
+    "sortPriceDescending": "価格の高い順",
     "groupBySet": "拡張パックごとにまとめる",
     "added": "コレクションに追加しました",
     "updated": "コレクションを更新しました",
@@ -323,7 +327,8 @@
     "line": "{line} 行目",
     "columnMapping": "列の対応",
     "unmatchedCard": "この行に一致するカードがありません",
-    "downloadTemplate": "テンプレートをダウンロード"
+    "downloadTemplate": "テンプレートをダウンロード",
+    "downloadErrors": "エラー行をダウンロード"
   },
   "auth": {
     "signIn": "ログイン",
@@ -351,13 +356,18 @@
     "signupDisabled": "このインスタンスでは新規登録を受け付けていません。",
     "verifyTitle": "メールアドレスの確認",
     "verifyBody": "{email} に確認リンクを送信しました。",
+    "verifyCheckSpam": "迷惑メールフォルダもご確認ください。",
+    "resendVerification": "確認メールを再送",
+    "verificationResent": "新しいリンクを送信しました。",
+    "backToSignIn": "ログインに戻る",
     "errors": {
       "invalidCredentials": "メールアドレスとパスワードが一致しません。",
       "emailTaken": "このアドレスのアカウントはすでに存在します。",
       "weakPassword": "10文字以上にしてください。",
       "passwordMismatch": "2つのパスワードが一致しません。",
       "generic": "処理を完了できませんでした。もう一度お試しください。",
-      "rateLimited": "試行回数が多すぎます。1分ほど待ってください。"
+      "rateLimited": "試行回数が多すぎます。1分ほど待ってください。",
+      "emailNotVerified": "先にメールを確認してください。新しいリンクを送信しました。"
     },
     "createAccount": "アカウントを作成"
   },
@@ -372,6 +382,10 @@
     "displayCurrency": "表示通貨",
     "displayCurrencyHelp": "合計はこの通貨に換算されます。",
     "data": "あなたのデータ",
+    "deleteCollection": "コレクションを空にする",
+    "deleteCollectionBody": "所有カードと未開封商品をすべて削除します。アカウント、設定、ほしいものリストは保持されます。",
+    "deleteCollectionConfirm": "コレクションを空にする",
+    "deleteCollectionDone": "コレクションを空にしました。",
     "dangerZone": "取り扱い注意",
     "deleteAccount": "アカウントを削除",
     "deleteAccountBody": "アカウント、コレクション、ほしいものリストを完全に削除します。元に戻せません。",
@@ -428,7 +442,11 @@
     "userJoined": "登録日",
     "userLastSeen": "最終アクセス",
     "userCards": "カード",
-    "userNeverSeen": "未ログイン"
+    "userNeverSeen": "未ログイン",
+    "backup": "バックアップ",
+    "backupHint": "サーバー外の控え",
+    "backupBody": "今作成したデータベース全体のバックアップをダウンロードします。全ユーザーのメールアドレス、パスワードハッシュ、コレクションが含まれます。取扱いにご注意ください。",
+    "backupDownload": "データベースをダウンロード"
   },
   "pwa": {
     "installTitle": "TrackMyDex をインストール",
@@ -550,7 +568,20 @@
     "importCsv": "コレクションを読み込む (CSV)",
     "installApp": "アプリをインストール"
   },
+  "methodology": {
+    "title": "情報源と算出方法",
+    "eyebrow": "透明性",
+    "intro": "TrackMyDex がカタログを構築し、表示する推定値を算出する方法です。",
+    "catalogTitle": "カタログ",
+    "catalogBody": "カード情報と画像は主に TCGdex から取得します。セット、言語、バリエーションごとに正規化し、定期処理で更新します。",
+    "pricesTitle": "価格と推定値",
+    "pricesBody": "利用可能な価格は記載されたマーケットプレイスから取得します。換算には設定レートを使い、状態には表示済みの係数を適用します。販売価格を保証するものではありません。",
+    "limitsTitle": "制限",
+    "limitsBody": "データは欠落、遅延、または不正確な場合があります。売買前に言語、バリエーション、状態、マーケットを必ず確認してください。"
+  },
   "legal": {
+    "openSource": "TrackMyDex はオープンソースソフトウェアです。公開ソースコードはこちらです：",
+    "developer": "開発・公開：Swan Carenini（フランス、ラ・ファルレード）。ポートフォリオ：",
     "eyebrow": "Legal",
     "draftNotice": "Some details on this page are still to be filled in by the operator.",
     "updated": "Last updated: {date}",

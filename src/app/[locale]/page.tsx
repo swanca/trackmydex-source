@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/routing';
 import { getCurrentUser } from '@/lib/session';
@@ -23,6 +24,12 @@ import { SearchLauncher } from '@/components/search/SearchLauncher';
 import { FeaturedRail } from '@/components/home/FeaturedRail';
 import { getFeaturedRails } from '@/server/services/featured';
 import type { Currency } from '@/db/schema/enums';
+import { APP_ORIGIN, localizedAlternates } from '@/lib/seo';
+
+export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
+  const { locale } = await params;
+  return { alternates: localizedAlternates(locale) };
+}
 
 export default async function HomePage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
@@ -306,7 +313,32 @@ async function SignedOutHome({
 
   return (
     <>
-      <PageHeader eyebrow={t('app.tagline')} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'WebApplication',
+            name: 'TrackMyDex',
+            url: `${APP_ORIGIN}/${locale}`,
+            applicationCategory: 'UtilitiesApplication',
+            operatingSystem: 'Any',
+            offers: { '@type': 'Offer', price: '0', priceCurrency: 'EUR' },
+            description: t('home.signedOutBody'),
+          }).replace(/</g, '\\u003c'),
+        }}
+      />
+      <PageHeader
+        title={t('home.signedOutTitle')}
+        eyebrow={
+          <>
+            {t('app.tagline')}{' '}
+            <a href="https://github.com/swanca/trackmydex-source" target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-paper">
+              {t('app.openSource')}
+            </a>
+          </>
+        }
+      />
       <PageSection className="space-y-8">
         {rails.length > 0 ? (
           rails.map((rail) => <FeaturedRail key={rail.href} rail={rail} locale={locale} />)

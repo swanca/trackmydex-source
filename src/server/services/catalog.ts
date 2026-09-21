@@ -393,7 +393,7 @@ export interface CardQuery {
   search?: string;
   limit?: number;
   offset?: number;
-  sort?: 'number' | 'name' | 'price';
+  sort?: 'number' | 'name' | 'price' | 'price-asc' | 'price-desc';
 }
 
 interface CardTileRow {
@@ -481,8 +481,10 @@ export async function listCards(query: CardQuery): Promise<{ cards: CardTile[]; 
   const orderBy =
     sort === 'name'
       ? sql`coalesce(ct.name, c.name) asc`
-      : sort === 'price'
+      : sort === 'price' || sort === 'price-desc'
         ? sql`pr.market desc nulls last`
+        : sort === 'price-asc'
+          ? sql`pr.market asc nulls last`
         : sql`c.sort_index asc, c.local_id asc`;
 
   const result = await db.execute<SqlRow<CardTileRow>>(sql`

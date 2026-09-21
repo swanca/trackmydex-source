@@ -51,6 +51,9 @@ RUN npm run build
 
 # --- runtime ---------------------------------------------------------------
 FROM base AS runner
+# pg_dump, for the admin backup download. Version-matched to the server:
+# pg_dump refuses to dump a database newer than itself.
+RUN apk add --no-cache postgresql16-client
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000

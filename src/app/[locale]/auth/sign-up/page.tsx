@@ -36,6 +36,7 @@ export default async function SignUpPage({
         mode="sign-up"
         locale={locale}
         googleEnabled={hasGoogleAuth}
+        emailVerificationRequired={env.AUTH_REQUIRE_EMAIL_VERIFICATION}
         labels={await authLabels(t)}
       />
       <p className="mt-6 text-[0.8125rem] text-muted">

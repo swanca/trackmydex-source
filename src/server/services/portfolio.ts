@@ -72,7 +72,7 @@ export async function getPortfolioRows(userId: string): Promise<PortfolioRow[]> 
       c.id                 as "cardId",
       c.name               as "cardName",
       c.local_id           as "localId",
-      c.image_base_url     as "imageBaseUrl",
+      coalesce(c.image_base_url, c.fallback_image_url) as "imageBaseUrl",
       s.id                 as "setId",
       s.name               as "setName",
       s.logo_url           as "setLogoUrl",

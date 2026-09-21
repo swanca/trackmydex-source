@@ -18,6 +18,12 @@ export async function authLabels(t: Translator): Promise<AuthFormLabels> {
     submitReset: t('app.save'),
     resetSent: t('auth.resetSent'),
     resetDone: t('auth.resetDone'),
+    verifyTitle: t('auth.verifyTitle'),
+    verifyBody: t('auth.verifyBody', { email: '{email}' }),
+    verifyCheckSpam: t('auth.verifyCheckSpam'),
+    resendVerification: t('auth.resendVerification'),
+    verificationResent: t('auth.verificationResent'),
+    backToSignIn: t('auth.backToSignIn'),
     continueWithGoogle: t('auth.continueWithGoogle'),
     or: t('auth.or'),
     errors: {
@@ -27,6 +33,7 @@ export async function authLabels(t: Translator): Promise<AuthFormLabels> {
       passwordMismatch: t('auth.errors.passwordMismatch'),
       generic: t('auth.errors.generic'),
       rateLimited: t('auth.errors.rateLimited'),
+      emailNotVerified: t('auth.errors.emailNotVerified'),
     },
   };
 }

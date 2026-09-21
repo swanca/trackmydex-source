@@ -2,6 +2,7 @@
   "app": {
     "name": "TrackMyDex",
     "tagline": "Mi colección Pokémon TCG.",
+    "openSource": "Código abierto",
     "loading": "Cargando",
     "retry": "Reintentar",
     "cancel": "Cancelar",
@@ -213,6 +214,7 @@
   },
   "collection": {
     "title": "Mi colección",
+    "totalValue": "Valor total de la colección",
     "subtitle": "{unique} únicas · {total} cartas",
     "empty": "Aún no hay nada",
     "emptyBody": "Las cartas añadidas desde una expansión o la búsqueda aparecen aquí.",
@@ -231,6 +233,8 @@
     "sortRecent": "Añadidas hace poco",
     "sortName": "Nombre",
     "sortNumber": "Número",
+    "sortPriceAscending": "Precio ascendente",
+    "sortPriceDescending": "Precio descendente",
     "groupBySet": "Agrupar por expansión",
     "added": "Añadida a mi colección",
     "updated": "Colección actualizada",
@@ -323,7 +327,8 @@
     "line": "Línea {line}",
     "columnMapping": "Correspondencia de columnas",
     "unmatchedCard": "Ninguna carta coincide con esta fila",
-    "downloadTemplate": "Descargar una plantilla"
+    "downloadTemplate": "Descargar una plantilla",
+    "downloadErrors": "Descargar filas con errores"
   },
   "auth": {
     "signIn": "Iniciar sesión",
@@ -351,13 +356,18 @@
     "signupDisabled": "Esta instancia no acepta cuentas nuevas.",
     "verifyTitle": "Confirma tu correo",
     "verifyBody": "Hemos enviado un enlace de confirmación a {email}.",
+    "verifyCheckSpam": "Recuerda revisar la carpeta de correo no deseado.",
+    "resendVerification": "Reenviar el correo",
+    "verificationResent": "Se acaba de enviar un nuevo enlace.",
+    "backToSignIn": "Volver a iniciar sesión",
     "errors": {
       "invalidCredentials": "Ese correo y esa contraseña no coinciden.",
       "emailTaken": "Ya existe una cuenta con esta dirección.",
       "weakPassword": "Usa al menos 10 caracteres.",
       "passwordMismatch": "Las dos contraseñas no coinciden.",
       "generic": "No hemos podido completarlo. Inténtalo de nuevo.",
-      "rateLimited": "Demasiados intentos. Prueba dentro de un minuto."
+      "rateLimited": "Demasiados intentos. Prueba dentro de un minuto.",
+      "emailNotVerified": "Confirma primero tu correo. Se acaba de enviar un nuevo enlace."
     },
     "createAccount": "Crear una cuenta"
   },
@@ -372,6 +382,10 @@
     "displayCurrency": "Divisa de visualización",
     "displayCurrencyHelp": "Los totales se convierten a esta divisa.",
     "data": "Mis datos",
+    "deleteCollection": "Vaciar mi colección",
+    "deleteCollectionBody": "Elimina todas las cartas y productos sellados de la colección. La cuenta, las preferencias y la lista de deseos se conservan.",
+    "deleteCollectionConfirm": "Sí, vaciar mi colección",
+    "deleteCollectionDone": "La colección se ha vaciado.",
     "dangerZone": "Zona peligrosa",
     "deleteAccount": "Eliminar mi cuenta",
     "deleteAccountBody": "Elimina para siempre tu cuenta, tu colección y tus deseos. No se puede deshacer.",
@@ -428,7 +442,11 @@
     "userJoined": "Registro",
     "userLastSeen": "Ultima actividad",
     "userCards": "Cartas",
-    "userNeverSeen": "Nunca conectado"
+    "userNeverSeen": "Nunca conectado",
+    "backup": "Copia de seguridad",
+    "backupHint": "Una copia fuera del servidor",
+    "backupBody": "Descarga una copia completa de la base de datos, creada ahora. El archivo contiene los correos, los hashes de contraseña y las colecciones de todos los usuarios: guárdalo en lugar seguro.",
+    "backupDownload": "Descargar la base de datos"
   },
   "pwa": {
     "installTitle": "Instalar TrackMyDex",
@@ -550,7 +568,20 @@
     "importCsv": "Importar una colección (CSV)",
     "installApp": "Instalar la aplicación"
   },
+  "methodology": {
+    "title": "Fuentes y método",
+    "eyebrow": "Transparencia",
+    "intro": "Cómo TrackMyDex reúne el catálogo y calcula las estimaciones mostradas.",
+    "catalogTitle": "Catálogo",
+    "catalogBody": "Los datos y las imágenes de las cartas proceden principalmente de TCGdex. Se normalizan por colección, idioma y variante, y se actualizan mediante tareas programadas.",
+    "pricesTitle": "Precios y estimaciones",
+    "pricesBody": "Los precios disponibles proceden de los mercados indicados. Las conversiones usan el tipo configurado y los estados aplican coeficientes visibles. Son estimaciones, no ofertas de venta.",
+    "limitsTitle": "Limitaciones",
+    "limitsBody": "Un dato puede faltar, retrasarse o ser impreciso. Comprueba siempre el idioma, la variante, el estado y el mercado antes de comprar o vender."
+  },
   "legal": {
+    "openSource": "TrackMyDex es software de código abierto. Su código fuente público está disponible aquí:",
+    "developer": "Desarrollado y publicado por Swan Carenini, La Farlède, Francia. Portfolio:",
     "eyebrow": "Legal",
     "draftNotice": "Some details on this page are still to be filled in by the operator.",
     "updated": "Last updated: {date}",

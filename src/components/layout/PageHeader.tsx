@@ -20,7 +20,7 @@ export function PageHeader({
 }: {
   /** Optional: a page whose eyebrow already says everything needs no headline. */
   title?: string;
-  eyebrow?: string;
+  eyebrow?: ReactNode;
   backHref?: string;
   backLabel?: string;
   actions?: ReactNode;

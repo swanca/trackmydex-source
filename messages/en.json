@@ -2,6 +2,7 @@
   "app": {
     "name": "TrackMyDex",
     "tagline": "My Pokémon TCG collection.",
+    "openSource": "Open source",
     "loading": "Loading",
     "retry": "Try again",
     "cancel": "Cancel",
@@ -213,6 +214,7 @@
   },
   "collection": {
     "title": "My collection",
+    "totalValue": "Total collection value",
     "subtitle": "{unique} unique · {total} cards",
     "empty": "Nothing here yet",
     "emptyBody": "Cards added from a set or from search appear here.",
@@ -231,6 +233,8 @@
     "sortRecent": "Recently added",
     "sortName": "Name",
     "sortNumber": "Set number",
+    "sortPriceAscending": "Lowest price",
+    "sortPriceDescending": "Highest price",
     "groupBySet": "Group by set",
     "added": "Added to my collection",
     "updated": "Collection updated",
@@ -323,7 +327,8 @@
     "line": "Line {line}",
     "columnMapping": "Column mapping",
     "unmatchedCard": "No card matched this row",
-    "downloadTemplate": "Download a template"
+    "downloadTemplate": "Download a template",
+    "downloadErrors": "Download error rows"
   },
   "auth": {
     "signIn": "Sign in",
@@ -351,13 +356,18 @@
     "signupDisabled": "This instance is not accepting new accounts.",
     "verifyTitle": "Confirm your e-mail",
     "verifyBody": "We sent a confirmation link to {email}.",
+    "verifyCheckSpam": "Remember to check your spam folder.",
+    "resendVerification": "Resend e-mail",
+    "verificationResent": "A new link has just been sent.",
+    "backToSignIn": "Back to sign in",
     "errors": {
       "invalidCredentials": "That e-mail and password do not match.",
       "emailTaken": "An account already exists for this address.",
       "weakPassword": "Use at least 10 characters.",
       "passwordMismatch": "The two passwords do not match.",
       "generic": "We could not complete that. Please try again.",
-      "rateLimited": "Too many attempts. Try again in a minute."
+      "rateLimited": "Too many attempts. Try again in a minute.",
+      "emailNotVerified": "Confirm your e-mail first. A new link has just been sent."
     },
     "createAccount": "Create an account"
   },
@@ -372,6 +382,10 @@
     "displayCurrency": "Display currency",
     "displayCurrencyHelp": "Totals are converted to this currency.",
     "data": "My data",
+    "deleteCollection": "Clear my collection",
+    "deleteCollectionBody": "Deletes every owned card and sealed product. Your account, preferences and wishlist are kept.",
+    "deleteCollectionConfirm": "Yes, clear my collection",
+    "deleteCollectionDone": "Your collection has been cleared.",
     "dangerZone": "Danger zone",
     "deleteAccount": "Delete my account",
     "deleteAccountBody": "Permanently deletes my account, collection and wishlist. This cannot be undone.",
@@ -428,7 +442,11 @@
     "userJoined": "Joined",
     "userLastSeen": "Last seen",
     "userCards": "Cards",
-    "userNeverSeen": "Never signed in"
+    "userNeverSeen": "Never signed in",
+    "backup": "Backup",
+    "backupHint": "A copy off the server",
+    "backupBody": "Download a complete backup of the database, made now. The file contains every user’s email address, password hash and collection: keep it somewhere safe.",
+    "backupDownload": "Download the database"
   },
   "pwa": {
     "installTitle": "Install TrackMyDex",
@@ -550,7 +568,20 @@
     "importCsv": "Import a collection (CSV)",
     "installApp": "Install the app"
   },
+  "methodology": {
+    "title": "Sources and methodology",
+    "eyebrow": "Transparency",
+    "intro": "How TrackMyDex assembles its catalogue and calculates the estimates it displays.",
+    "catalogTitle": "Catalogue",
+    "catalogBody": "Card details and artwork come mainly from TCGdex. Data is normalized by set, language and variant, then refreshed by scheduled jobs.",
+    "pricesTitle": "Prices and estimates",
+    "pricesBody": "Available prices come from the referenced marketplaces. Conversions use the configured rate and card conditions apply visible multipliers. These are estimates, not sale offers.",
+    "limitsTitle": "Limitations",
+    "limitsBody": "Data can be missing, delayed or imprecise. Always verify language, variant, condition and marketplace before buying or selling."
+  },
   "legal": {
+    "openSource": "TrackMyDex is open-source software. Its public source code is available here:",
+    "developer": "Developed and published by Swan Carenini, La Farlède, France. Portfolio:",
     "eyebrow": "Legal",
     "draftNotice": "Some details on this page are still to be filled in by the operator.",
     "updated": "Last updated: {date}",

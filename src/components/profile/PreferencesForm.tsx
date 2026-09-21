@@ -3,7 +3,6 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { authClient } from '@/lib/auth-client';
-import { updatePreferences } from '@/lib/api-client';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Field';
 
@@ -52,7 +51,8 @@ export function PreferencesForm({
   function save() {
     setSaved(false);
     start(async () => {
-      await updatePreferences(form);
+      const { error } = await authClient.updateUser(form);
+      if (error) return;
       setSaved(true);
       // The UI locale lives in the URL, so a change means a real navigation.
       if (form.uiLocale !== initial.uiLocale) {

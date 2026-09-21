@@ -1,7 +1,7 @@
 import { and, eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { db, type SqlRow } from '@/db';
-import { card, cardVariant, collectionItem, wishlistItem } from '@/db/schema';
+import { card, cardVariant, collectionItem, sealedItem, wishlistItem } from '@/db/schema';
 import { CARD_LANGUAGES, CONDITIONS, CURRENCIES } from '@/db/schema/enums';
 import { logger } from '@/lib/logger';
 
@@ -247,6 +247,22 @@ export async function deleteEntry(userId: string, entryId: string): Promise<void
   await db
     .delete(collectionItem)
     .where(and(eq(collectionItem.userId, userId), eq(collectionItem.id, entryId)));
+}
+
+/** Empty owned cards and sealed products without touching the account or wishlist. */
+export async function deleteCollection(userId: string): Promise<{ cards: number; sealed: number }> {
+  return db.transaction(async (tx) => {
+    const cards = await tx
+      .delete(collectionItem)
+      .where(eq(collectionItem.userId, userId))
+      .returning({ id: collectionItem.id });
+    const sealed = await tx
+      .delete(sealedItem)
+      .where(eq(sealedItem.userId, userId))
+      .returning({ id: sealedItem.id });
+    logger.info('collection.deleted', { userId, cards: cards.length, sealed: sealed.length });
+    return { cards: cards.length, sealed: sealed.length };
+  });
 }
 
 /* ---------------------------------------------------------------- wishlist */
