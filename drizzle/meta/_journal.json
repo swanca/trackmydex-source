@@ -43,6 +43,13 @@
       "when": 1789923664060,
       "tag": "0005_tan_tarot",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790012047367,
+      "tag": "0006_salty_vision",
+      "breakpoints": true
     }
   ]
 }

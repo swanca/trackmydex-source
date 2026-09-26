@@ -6,8 +6,6 @@ with market estimates, set completion, a wishlist, and CSV in and out.
 
 Built mobile-first and installable as a PWA.
 
-Live site: [trackmydex.com](https://trackmydex.com)
-
 ---
 
 ## What it does
@@ -207,6 +205,7 @@ matter most:
 | `APP_URL` / `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` | Public origin. |
 | `ADMIN_EMAILS` | empty | Addresses with admin access. Checked on every request, so you can add or remove an admin without touching the database. |
 | `AUTH_ALLOW_SIGNUP` | `true` | Set `false` to lock a private instance. |
+| `AUTH_REQUIRE_EMAIL_VERIFICATION` | `true` | Email/password accounts must confirm their address. Google accounts are already verified by Google. Configure SMTP before opening public sign-up. |
 | `CATALOG_LANGUAGES` | `en,fr,es,pt,it,ja` | Printed card languages to ingest. Trim to cut sync time and database size. |
 | `PRICING_PROVIDERS` | `tcgdex` | Comma-separated provider keys. |
 | `PRICE_SYNC_MAX_VARIANTS` | `0` (all) | Cap a price run. `0` prices the entire catalog. |

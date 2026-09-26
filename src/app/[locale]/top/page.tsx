@@ -8,6 +8,7 @@ import { EmptyState } from '@/components/ui/States';
 import { CardTile } from '@/components/cards/CardTile';
 import { TopCardFilters } from '@/components/cards/TopCardFilters';
 import { Pagination } from '@/components/ui/Pagination';
+import { localizedAlternates } from '@/lib/seo';
 
 const PAGE_SIZE = 60;
 
@@ -29,7 +30,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: 'top' });
-  return { title: t('title'), description: t('description') };
+  return { title: t('title'), description: t('description'), alternates: localizedAlternates(locale, '/top') };
 }
 
 /**

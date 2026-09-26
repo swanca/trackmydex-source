@@ -8,6 +8,7 @@ import * as schema from '@/db/schema';
 import { env, hasGoogleAuth } from './env';
 import { logger } from './logger';
 import { renderActionEmail, sendMail } from './mail';
+import { verificationMailCopy } from './verification-mail';
 
 /**
  * Authentication.
@@ -61,16 +62,23 @@ export const auth = betterAuth({
     sendOnSignUp: env.AUTH_REQUIRE_EMAIL_VERIFICATION,
     autoSignInAfterVerification: true,
     async sendVerificationEmail({ user, url }) {
+      const [preferences] = await db
+        .select({ uiLocale: schema.user.uiLocale })
+        .from(schema.user)
+        .where(eq(schema.user.id, user.id))
+        .limit(1);
+      const copy = verificationMailCopy(preferences?.uiLocale);
       await sendMail({
         to: user.email,
-        subject: 'Confirm your TrackMyDex account',
-        text: `Confirm your account: ${url}`,
+        subject: copy.subject,
+        text: `${copy.heading}\n\n${copy.body}\n\n${url}\n\n${copy.footer}`,
         html: renderActionEmail({
-          heading: 'Confirm your account',
-          body: 'One tap and your collection is ready to sync across devices.',
-          actionLabel: 'Confirm my account',
+          heading: copy.heading,
+          body: copy.body,
+          actionLabel: copy.action,
           actionUrl: url,
-          footer: 'If this was not you, no account will be created without confirmation.',
+          footer: copy.footer,
+          icon: '✉',
         }),
       });
     },

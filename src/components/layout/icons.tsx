@@ -135,3 +135,63 @@ export function BoxIcon(props: IconProps) {
     </svg>
   );
 }
+
+export function ShareIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <circle cx="18" cy="5" r="2.5" />
+      <circle cx="6" cy="12" r="2.5" />
+      <circle cx="18" cy="19" r="2.5" />
+      <path d="m8.2 10.8 7.6-4.5M8.2 13.2l7.6 4.5" />
+    </svg>
+  );
+}
+
+export function MailIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="m4 7 8 6 8-6" />
+    </svg>
+  );
+}
+
+export function FacebookIcon(props: IconProps) {
+  return <svg {...base} {...props}><path d="M14 21v-8h3l.5-3H14V8.2c0-1 .4-1.7 1.8-1.7H18V3.8c-.6-.1-1.5-.2-2.6-.2-2.7 0-4.5 1.6-4.5 4.7V10H8v3h2.9v8" /></svg>;
+}
+
+export function XIcon(props: IconProps) {
+  return <svg {...base} {...props}><path d="M5 4h3.8L19 20h-3.8L5 4Zm1 16L18 4" /></svg>;
+}
+
+export function RedditIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <circle cx="12" cy="13" r="7" />
+      <circle cx="9" cy="12" r="1" fill="currentColor" stroke="none" />
+      <circle cx="15" cy="12" r="1" fill="currentColor" stroke="none" />
+      <path d="M9 16c1.6 1 4.4 1 6 0M13 6l1-3 3 1" />
+      <circle cx="19" cy="7" r="1.5" />
+    </svg>
+  );
+}
+
+export function InstagramIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <rect x="3" y="3" width="18" height="18" rx="5" />
+      <circle cx="12" cy="12" r="4" />
+      <circle cx="17.5" cy="6.5" r=".7" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+export function DiscordIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M7 7.5c3.3-1.7 6.7-1.7 10 0 1.4 2.2 2.2 4.7 2.5 7.5-2 1.5-3.6 2-5 2.3l-1.1-1.5M7 7.5C5.6 9.7 4.8 12.2 4.5 15c2 1.5 3.6 2 5 2.3l1.1-1.5" />
+      <circle cx="9" cy="12.5" r="1" fill="currentColor" stroke="none" />
+      <circle cx="15" cy="12.5" r="1" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}

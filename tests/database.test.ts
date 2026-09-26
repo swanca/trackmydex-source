@@ -1,8 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { PGlite } from '@electric-sql/pglite';
 import { pg_trgm } from '@electric-sql/pglite/contrib/pg_trgm';
+import { drizzle } from 'drizzle-orm/pglite';
+import { collectionRowsQuery } from '@/server/services/collection-groups';
 
 /**
  * Integration tests against a real Postgres.
@@ -18,7 +20,10 @@ import { pg_trgm } from '@electric-sql/pglite/contrib/pg_trgm';
 
 let db: PGlite;
 
-const MIGRATION = readFileSync(resolve(process.cwd(), 'drizzle/0000_init.sql'), 'utf8');
+const MIGRATIONS = readdirSync(resolve(process.cwd(), 'drizzle'))
+  .filter((file) => /^\d{4}_.+\.sql$/.test(file))
+  .sort()
+  .map((file) => readFileSync(resolve(process.cwd(), 'drizzle', file), 'utf8'));
 
 beforeAll(async () => {
   db = new PGlite({ extensions: { pg_trgm } });
@@ -26,9 +31,11 @@ beforeAll(async () => {
 
   // Drizzle separates statements with its own marker rather than plain `;`,
   // because function bodies and check constraints contain semicolons.
-  for (const statement of MIGRATION.split('--> statement-breakpoint')) {
-    const sql = statement.trim();
-    if (sql) await db.exec(sql);
+  for (const migration of MIGRATIONS) {
+    for (const statement of migration.split('--> statement-breakpoint')) {
+      const sql = statement.trim();
+      if (sql) await db.exec(sql);
+    }
   }
 
   await seed();
@@ -75,7 +82,12 @@ async function seed() {
         ('swsh3-136::reverse', 'tcgdex.cardmarket', 'EUR', 0.25, 0.04, 0.19, 'exact');
 
     insert into "user" (id, name, email, email_verified)
-      values ('u1', 'Test', 'test@example.com', true);
+      values
+        ('u1', 'Test', 'test@example.com', true),
+        ('u-language', 'Language', 'language@example.com', true);
+
+    insert into collection_item (user_id, card_id, card_variant_id, language, condition, quantity)
+      values ('u-language', 'swsh3-136', 'swsh3-136::normal', 'fr', 'near_mint', 1);
   `);
 }
 
@@ -294,6 +306,46 @@ describe('search', () => {
       `select local_id from card where set_id = 'swsh3' order by sort_index asc`,
     );
     expect(result.rows.map((r) => r.local_id)).toEqual(['136', '189']);
+  });
+});
+
+describe('collection card language', () => {
+  it('uses the language stored on an owned entry instead of the interface language', async () => {
+    const orm = drizzle(db);
+    const result = await orm.execute(collectionRowsQuery('u-language', 'en'));
+
+    expect(result.rows[0]).toMatchObject({
+      cardName: 'Fouinar',
+      language: 'fr',
+    });
+  });
+});
+
+describe('collection sharing', () => {
+  it('defaults to hidden value, keeps tokens unique, and cascades with the owner', async () => {
+    await db.exec(`
+      insert into "user" (id, name, email) values
+        ('u-share-a', 'Share A', 'share-a@example.com'),
+        ('u-share-b', 'Share B', 'share-b@example.com');
+      insert into collection_share (user_id, public_token) values
+        ('u-share-a', 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
+    `);
+
+    const share = await db.query<{ show_value: boolean }>(
+      `select show_value from collection_share where user_id = 'u-share-a'`,
+    );
+    expect(share.rows[0]?.show_value).toBe(false);
+
+    await expect(
+      db.exec(`insert into collection_share (user_id, public_token)
+               values ('u-share-b', 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')`),
+    ).rejects.toThrow();
+
+    await db.exec(`delete from "user" where id = 'u-share-a'`);
+    const left = await db.query<{ count: number }>(
+      `select count(*)::int as count from collection_share where user_id = 'u-share-a'`,
+    );
+    expect(left.rows[0]?.count).toBe(0);
   });
 });
 

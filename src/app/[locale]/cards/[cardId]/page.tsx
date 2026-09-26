@@ -5,7 +5,8 @@ import { Link } from '@/i18n/routing';
 import { getCurrentUser } from '@/lib/session';
 import { cardImage } from '@/lib/images';
 import { resolvePreferences } from '@/lib/user-prefs';
-import { LANGUAGE_LABELS, toUiLocale } from '@/lib/catalog/languages';
+import { LANGUAGE_LABELS, LOCALE_DEFAULT_CARD_LANGUAGE, toUiLocale } from '@/lib/catalog/languages';
+import { localizedAlternates } from '@/lib/seo';
 import { CARD_LANGUAGES, CONDITIONS, type CardLanguage } from '@/db/schema/enums';
 import { CONDITIONS_ORDERED } from '@/lib/pricing/condition';
 import { DETAIL_IMAGE_SIZES } from '@/lib/images';
@@ -25,7 +26,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale, cardId } = await params;
   const t = await getTranslations({ locale, namespace: 'meta' });
-  const card = await getCardDetail(decodeURIComponent(cardId), null, 'en', 'EUR');
+  const card = await getCardDetail(decodeURIComponent(cardId), null, LOCALE_DEFAULT_CARD_LANGUAGE[toUiLocale(locale)], 'EUR');
   if (!card) return {};
 
   return {
@@ -37,6 +38,7 @@ export async function generateMetadata({
       rarity: card.rarity ?? '—',
       artist: card.illustrator ?? '—',
     }),
+    alternates: localizedAlternates(locale, `/cards/${encodeURIComponent(cardId)}`),
     openGraph: {
       // Built through the helper, not by hand: a fallback image is already a
       // complete URL and appending /high.png to one yields a 403.

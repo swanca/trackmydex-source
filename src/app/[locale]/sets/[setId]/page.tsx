@@ -4,7 +4,8 @@ import { notFound } from 'next/navigation';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { getCurrentUser } from '@/lib/session';
 import { resolvePreferences } from '@/lib/user-prefs';
-import { LANGUAGE_LABELS, toUiLocale } from '@/lib/catalog/languages';
+import { LANGUAGE_LABELS, LOCALE_DEFAULT_CARD_LANGUAGE, toUiLocale } from '@/lib/catalog/languages';
+import { localizedAlternates } from '@/lib/seo';
 import { setLogo } from '@/lib/images';
 import { formatMoney } from '@/lib/pricing/money';
 import { CARD_LANGUAGES, type CardLanguage } from '@/db/schema/enums';
@@ -43,7 +44,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale, setId } = await params;
   const t = await getTranslations({ locale, namespace: 'meta' });
-  const detail = await getSetDetail(decodeURIComponent(setId), null, 'EUR', 'en');
+  const detail = await getSetDetail(decodeURIComponent(setId), null, 'EUR', LOCALE_DEFAULT_CARD_LANGUAGE[toUiLocale(locale)]);
   if (!detail) return {};
 
   return {
@@ -53,6 +54,7 @@ export async function generateMetadata({
       count: detail.cardCountTotal,
       date: detail.releaseDate ?? '',
     }),
+    alternates: localizedAlternates(locale, `/sets/${encodeURIComponent(setId)}`),
     openGraph: {
       images: detail.logoUrl ? [{ url: `${detail.logoUrl}.png` }] : [],
     },

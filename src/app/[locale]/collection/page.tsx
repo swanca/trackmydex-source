@@ -2,31 +2,25 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/routing';
 import { requireUser } from '@/lib/session';
 import { resolvePreferences } from '@/lib/user-prefs';
-import { LANGUAGE_LABELS, toUiLocale } from '@/lib/catalog/languages';
 import { formatMoney, formatNumber } from '@/lib/pricing/money';
-import { getCollectionFacets, listCollection } from '@/server/services/collection';
 import { getPortfolioSummary } from '@/server/services/portfolio';
 import { listOwnedSealed } from '@/server/services/sealed';
 import { getFxRates } from '@/server/services/fx';
 import { PageHeader, PageSection } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/States';
-import { Pagination } from '@/components/ui/Pagination';
-import { CollectionFilters } from '@/components/collection/CollectionFilters';
-import { CollectionRow } from '@/components/collection/CollectionRow';
 import { OwnedSealedList } from '@/components/sealed/OwnedSealedList';
 import { SetGroup } from '@/components/collection/SetGroup';
 import { listCollectionBySet } from '@/server/services/collection-groups';
 import { SearchLauncher } from '@/components/search/SearchLauncher';
-
-const PAGE_SIZE = 40;
+import { ShareCollection } from '@/components/collection/ShareCollection';
+import { getCollectionShare } from '@/server/services/collection-share';
+import { APP_ORIGIN } from '@/lib/seo';
 
 export default async function CollectionPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const { locale } = await params;
   setRequestLocale(locale);
@@ -34,42 +28,13 @@ export default async function CollectionPage({
   const t = await getTranslations();
   const user = await requireUser(locale, '/collection');
   const prefs = resolvePreferences(user, locale);
-  const search = await searchParams;
-
-  const page = Math.max(1, Number.parseInt(search.page ?? '1', 10) || 1);
-  // Any active filter means the collector is looking for something specific,
-  // and a flat ranked list answers that better than a set of drawers to open.
-  const filtered = Boolean(
-    search.lang || search.cond || search.set || search.rarity || search.variant ||
-      search.min || search.max,
-  );
-
-  const sort = (['value', 'recent', 'name', 'number'] as const).includes(search.sort as never)
-    ? (search.sort as 'value' | 'recent' | 'name' | 'number')
-    : 'value';
-
-  const [{ rows, total }, facets, summary, sealed, grouped, rates] = await Promise.all([
-    listCollection(user.id, prefs.displayLanguage, {
-      ...(search.lang ? { language: [search.lang] } : {}),
-      ...(search.cond ? { condition: [search.cond] } : {}),
-      ...(search.set ? { setId: [search.set] } : {}),
-      ...(search.rarity ? { rarity: [search.rarity] } : {}),
-      ...(search.variant ? { variantType: [search.variant] } : {}),
-      ...(search.min ? { minPrice: Number(search.min) } : {}),
-      ...(search.max ? { maxPrice: Number(search.max) } : {}),
-      sort,
-      limit: PAGE_SIZE,
-      offset: (page - 1) * PAGE_SIZE,
-    }),
-    getCollectionFacets(user.id),
+  const [summary, sealed, grouped, rates, initialShare] = await Promise.all([
     getPortfolioSummary(user.id, prefs.displayCurrency),
-    listOwnedSealed(user.id, { sort, limit: 100, language: prefs.displayLanguage }),
+    listOwnedSealed(user.id, { sort: 'value', limit: 100, language: prefs.displayLanguage }),
     listCollectionBySet(user.id, prefs.displayLanguage, prefs.displayCurrency),
     getFxRates(),
+    getCollectionShare(user.id),
   ]);
-
-  const uiLocale = toUiLocale(locale);
-  const languageLabels = LANGUAGE_LABELS[uiLocale];
 
   if (summary.totalCards === 0 && sealed.total === 0) {
     return (
@@ -100,6 +65,20 @@ export default async function CollectionPage({
         })}
         actions={
           <>
+            <ShareCollection
+              initialShare={initialShare}
+              locale={locale}
+              origin={APP_ORIGIN}
+              labels={{
+                action: t('share.action'), title: t('share.title'), description: t('share.description'),
+                create: t('share.create'), copy: t('share.copy'), copied: t('share.copied'),
+                nativeShare: t('share.nativeShare'), showValue: t('share.showValue'),
+                exportCsv: t('share.exportCsv'), revoke: t('share.revoke'), revokeConfirm: t('share.revokeConfirm'),
+                error: t('share.error'), shareTitle: t('share.shareTitle'), shareText: t('share.shareText'),
+                email: t('share.email'), facebook: t('share.facebook'), x: t('share.x'), reddit: t('share.reddit'),
+                instagram: t('share.instagram'), discord: t('share.discord'),
+              }}
+            />
             <a href="/api/collection/export" download>
               <Button variant="secondary" size="sm">
                 {t('csv.export')}
@@ -119,7 +98,7 @@ export default async function CollectionPage({
 
         <div className="surface-flat flex items-baseline justify-between gap-4 rounded-[var(--radius-tile)] px-4 py-3">
           <div>
-            <p className="type-eyebrow mb-1">{t('portfolio.estimatedValue')}</p>
+            <p className="type-eyebrow mb-1">{t('collection.totalValue')}</p>
             <p className="tnum font-display text-xl font-bold">
               {formatMoney(summary.totalValue, locale)}
             </p>
@@ -129,84 +108,22 @@ export default async function CollectionPage({
           </p>
         </div>
 
-        <CollectionFilters
-          facets={{
-            languages: facets.languages.map((value) => ({
-              value,
-              label: languageLabels[value as keyof typeof languageLabels] ?? value,
-            })),
-            conditions: facets.conditions.map((value) => ({
-              value,
-              label: t(`condition.${value}` as never),
-            })),
-            rarities: facets.rarities.map((value) => ({ value, label: value })),
-            variants: facets.variants.map((value) => ({
-              value,
-              label: t(`variant.${value}` as never),
-            })),
-            sets: facets.sets.map((set) => ({ value: set.id, label: set.name })),
-          }}
-          labels={{
-            filters: t('app.filters'),
-            apply: t('app.apply'),
-            clear: t('app.clearAll'),
-            language: t('collection.filterLanguage'),
-            condition: t('collection.filterCondition'),
-            set: t('collection.filterSet'),
-            rarity: t('collection.filterRarity'),
-            variant: t('collection.filterVariant'),
-            price: t('collection.filterPrice'),
-            sort: t('sets.sortBy'),
-            sortValue: t('collection.sortValue'),
-            sortRecent: t('collection.sortRecent'),
-            sortName: t('collection.sortName'),
-            sortNumber: t('collection.sortNumber'),
-            all: t('collection.all'),
-          }}
-        />
-
-        {/* Filters still narrow a flat list; with none applied the collection
-            is shown grouped by set, which is how collectors think about it. */}
-        {filtered ? (
-          rows.length === 0 ? (
-            <EmptyState title={t('sets.empty')} body={t('search.noResultsBody')} />
-          ) : (
-            <>
-              <ul className="space-y-2">
-                {rows.map((row) => (
-                  <CollectionRow
-                    key={row.id}
-                    row={row}
-                    locale={locale}
-                    displayCurrency={prefs.displayCurrency}
-                    labels={{
-                      variant: t(`variant.${row.variantType}` as never),
-                      condition: t(`condition.${row.condition}` as never),
-                      language:
-                        languageLabels[row.language as keyof typeof languageLabels] ?? row.language,
-                      increment: t('collection.increment'),
-                      decrement: t('collection.decrement'),
-                      count: t('collection.quantityLabel', { count: row.quantity }),
-                    }}
-                  />
-                ))}
-              </ul>
-
-              <Pagination
-                page={page}
-                pageSize={PAGE_SIZE}
-                total={total}
-                labels={{ previous: t('app.back'), next: t('app.loadMore') }}
-              />
-            </>
-          )
-        ) : (
-          <div className="space-y-2">
+        <div className="space-y-2">
             {grouped.main.map((group, index) => (
               <SetGroup
                 key={group.setId}
                 group={group}
                 locale={locale}
+                cardLanguage={prefs.cardLanguage}
+                labels={{
+                  ownedOfSet: t('collection.ownedOfSet', { owned: group.uniqueCards, total: group.setSize || group.uniqueCards }),
+                  copies: group.totalCards > group.uniqueCards ? t('collection.copies', { count: group.totalCards }) : undefined,
+                  all: t('set.showAll'), owned: t('set.showOwnedOnly'), missing: t('set.showMissingOnly'),
+                  sort: t('sets.sortBy'), sortNumber: t('collection.sortNumber'),
+                  sortPriceAscending: t('collection.sortPriceAscending'), sortPriceDescending: t('collection.sortPriceDescending'),
+                  add: t('collection.increment'), remove: t('collection.decrement'), quantity: t('card.quantity'),
+                  loading: t('app.loading'), error: t('app.error'), empty: t('sets.empty'),
+                }}
                 defaultOpen={index === 0}
               />
             ))}
@@ -221,13 +138,26 @@ export default async function CollectionPage({
                 </summary>
                 <div className="space-y-2 border-t border-hairline p-2">
                   {grouped.asian.map((group) => (
-                    <SetGroup key={group.setId} group={group} locale={locale} />
+                    <SetGroup
+                      key={group.setId}
+                      group={group}
+                      locale={locale}
+                      cardLanguage={prefs.cardLanguage}
+                      labels={{
+                        ownedOfSet: t('collection.ownedOfSet', { owned: group.uniqueCards, total: group.setSize || group.uniqueCards }),
+                        copies: group.totalCards > group.uniqueCards ? t('collection.copies', { count: group.totalCards }) : undefined,
+                        all: t('set.showAll'), owned: t('set.showOwnedOnly'), missing: t('set.showMissingOnly'),
+                        sort: t('sets.sortBy'), sortNumber: t('collection.sortNumber'),
+                        sortPriceAscending: t('collection.sortPriceAscending'), sortPriceDescending: t('collection.sortPriceDescending'),
+                        add: t('collection.increment'), remove: t('collection.decrement'), quantity: t('card.quantity'),
+                        loading: t('app.loading'), error: t('app.error'), empty: t('sets.empty'),
+                      }}
+                    />
                   ))}
                 </div>
               </details>
             ) : null}
-          </div>
-        )}
+        </div>
 
         {sealed.rows.length > 0 ? (
           <section className="mt-8">

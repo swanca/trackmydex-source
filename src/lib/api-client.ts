@@ -101,6 +101,25 @@ export function updatePreferences(body: {
   });
 }
 
+export interface CollectionShareResponse {
+  share: { publicToken: string; showValue: boolean };
+}
+
+export function createCollectionShare(): Promise<CollectionShareResponse> {
+  return request<CollectionShareResponse>('/api/collection/share', { method: 'POST' });
+}
+
+export function updateCollectionShare(showValue: boolean): Promise<CollectionShareResponse> {
+  return request<CollectionShareResponse>('/api/collection/share', {
+    method: 'PATCH',
+    body: JSON.stringify({ showValue }),
+  });
+}
+
+export function revokeCollectionShare(): Promise<{ shared: false }> {
+  return request<{ shared: false }>('/api/collection/share', { method: 'DELETE' });
+}
+
 /** Sealed has no `cardId` to return, so it gets its own response shape. */
 export interface SealedQuantityResponse {
   quantity: number;

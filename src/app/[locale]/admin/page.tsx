@@ -43,6 +43,24 @@ export default async function AdminPage({
       <PageHeader title={t('admin.title')} eyebrow={t('admin.subtitle')} />
 
       <PageSection className="space-y-8">
+        {/* The nightly dumps sit on the same disk as the database they
+            protect, which is no protection against losing the machine. */}
+        <section>
+          <SectionHeader title={t('admin.backup')} eyebrow={t('admin.backupHint')} />
+          <Surface className="flex flex-wrap items-center justify-between gap-3">
+            <p className="type-meta max-w-[52ch] text-[0.8125rem]">
+              {t('admin.backupBody')}
+            </p>
+            <a
+              href="/api/admin/backup"
+              download
+              className="shrink-0 rounded-[var(--radius-pill)] bg-[rgb(139_92_246/0.18)] px-4 py-2 text-[0.8125rem] font-semibold text-[#c4b5fd] transition-colors hover:bg-[rgb(139_92_246/0.28)]"
+            >
+              {t('admin.backupDownload')}
+            </a>
+          </Surface>
+        </section>
+
         {/* There is no analytics in this product and the privacy policy says
             so, so the accounts themselves are the only honest answer to
             "who is using this". */}

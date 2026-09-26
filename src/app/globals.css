@@ -150,6 +150,15 @@ body {
   overflow-x: clip;
 }
 
+/* Native option popovers are painted by the browser/OS and do not reliably
+   inherit the select's themed surface. Keep every dropdown readable in all
+   three themes. */
+select option,
+select optgroup {
+  background-color: var(--color-slate);
+  color: var(--color-paper);
+}
+
 /*
  * The page wash, as its own fixed layer.
  *

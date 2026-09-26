@@ -22,6 +22,12 @@ export interface AuthFormLabels {
   submitReset: string;
   resetSent: string;
   resetDone: string;
+  verifyTitle: string;
+  verifyBody: string;
+  verifyCheckSpam: string;
+  resendVerification: string;
+  verificationResent: string;
+  backToSignIn: string;
   continueWithGoogle: string;
   or: string;
   errors: {
@@ -31,6 +37,7 @@ export interface AuthFormLabels {
     passwordMismatch: string;
     generic: string;
     rateLimited: string;
+    emailNotVerified: string;
   };
 }
 
@@ -50,11 +57,13 @@ export function AuthForm({
   mode,
   locale,
   googleEnabled,
+  emailVerificationRequired = false,
   labels,
 }: {
   mode: AuthMode;
   locale: string;
   googleEnabled: boolean;
+  emailVerificationRequired?: boolean;
   labels: AuthFormLabels;
 }) {
   const router = useRouter();
@@ -62,6 +71,7 @@ export function AuthForm({
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [verificationPending, setVerificationPending] = useState(false);
   const [form, setForm] = useState({ name: '', email: '', password: '', confirm: '' });
 
   const next = searchParams.get('next') ?? `/${locale}`;
@@ -108,6 +118,10 @@ export function AuthForm({
             defaultCardLanguage: localeCardLanguage(locale),
           });
           if (authError) throw authError;
+          if (emailVerificationRequired) {
+            setVerificationPending(true);
+            return;
+          }
           router.push(next);
           router.refresh();
           return;
@@ -137,6 +151,44 @@ export function AuthForm({
         setError(mapError(cause, labels));
       }
     });
+  }
+
+  function resendVerification() {
+    setError(null);
+    setNotice(null);
+    start(async () => {
+      const { error: authError } = await authClient.sendVerificationEmail({
+        email: form.email,
+        callbackURL: next,
+      });
+      if (authError) setError(mapError(authError, labels));
+      else setNotice(labels.verificationResent);
+    });
+  }
+
+  if (verificationPending) {
+    return (
+      <div className="space-y-5 text-center">
+        <div className="mx-auto grid size-14 place-items-center rounded-2xl bg-[rgb(139_92_246/0.16)] text-2xl" aria-hidden>
+          ✉
+        </div>
+        <div>
+          <h2 className="type-section text-paper">{labels.verifyTitle}</h2>
+          <p className="mt-2 text-[0.875rem] leading-6 text-muted">
+            {labels.verifyBody.replace('{email}', form.email)}
+          </p>
+          <p className="mt-1 text-[0.8125rem] text-faint">{labels.verifyCheckSpam}</p>
+        </div>
+        {notice ? <p className="text-[0.8125rem] text-mint">{notice}</p> : null}
+        {error ? <p role="alert" className="text-[0.8125rem] text-rose">{error}</p> : null}
+        <Button type="button" variant="secondary" fullWidth loading={pending} onClick={resendVerification}>
+          {labels.resendVerification}
+        </Button>
+        <Button type="button" variant="ghost" fullWidth onClick={() => router.push(`/${locale}/auth/sign-in`)}>
+          {labels.backToSignIn}
+        </Button>
+      </div>
+    );
   }
 
   return (
@@ -247,6 +299,7 @@ function mapError(cause: unknown, labels: AuthFormLabels): string {
   const status = (cause as { status?: number })?.status;
 
   if (status === 429) return labels.errors.rateLimited;
+  if (code.includes('EMAIL_NOT_VERIFIED')) return labels.errors.emailNotVerified;
   if (code.includes('INVALID_EMAIL_OR_PASSWORD') || status === 401) {
     return labels.errors.invalidCredentials;
   }

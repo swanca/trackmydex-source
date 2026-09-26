@@ -1,6 +1,7 @@
 import { relations, sql } from 'drizzle-orm';
 import {
   check,
+  boolean,
   date,
   index,
   integer,
@@ -131,6 +132,21 @@ export const portfolioSnapshot = pgTable(
     uniqueIndex('portfolio_snapshot_pk').on(t.userId, t.capturedOn),
     index('portfolio_snapshot_user_idx').on(t.userId, t.capturedOn.desc()),
   ],
+);
+
+/** One revocable, opaque public link per collection owner. */
+export const collectionShare = pgTable(
+  'collection_share',
+  {
+    userId: text('user_id')
+      .primaryKey()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    publicToken: varchar('public_token', { length: 48 }).notNull(),
+    showValue: boolean('show_value').notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('collection_share_token_idx').on(t.publicToken)],
 );
 
 export const collectionItemRelations = relations(collectionItem, ({ one }) => ({

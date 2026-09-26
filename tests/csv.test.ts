@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import Papa from 'papaparse';
-import { canonicalHeader, CSV_COLUMNS, csvTemplate } from '@/server/services/csv';
+import { canonicalHeader, CSV_COLUMNS, csvTemplate, normaliseCondition } from '@/server/services/csv';
+import {
+  matchImportCandidate,
+  normalizeImportText,
+  normalizeVariant,
+  serializeImportErrors,
+  type ImportCandidate,
+} from '@/lib/csv/import-normalize';
 
 /**
  * CSV is the escape hatch that makes this product non-captive: a user must be
@@ -122,5 +129,91 @@ describe('import header tolerance', () => {
   it('treats case, spaces, hyphens and underscores as the same', () => {
     const forms = ['card name', 'Card-Name', 'CARD_NAME', ' cardName '];
     for (const form of forms) expect(canonicalHeader(form)).toBe('card_name');
+  });
+});
+
+describe('import defaults', () => {
+  it.each(['', '   '])('uses near mint when condition is omitted (%j)', (condition) => {
+    expect(normaliseCondition(condition)).toBe('near_mint');
+  });
+});
+
+const pikachuTg: ImportCandidate = {
+  variantId: 'swsh11tg-TG05::holo',
+  variantType: 'holo',
+  isDefault: true,
+  cardId: 'swsh11tg-TG05',
+  cardNames: ['Pikachu'],
+  setId: 'swsh11tg',
+  setCode: 'LOR:TG',
+  setNames: ['Lost Origin Trainer Gallery'],
+  localId: 'TG05',
+  cardName: 'Pikachu',
+  setName: 'Lost Origin Trainer Gallery',
+};
+
+describe('tolerant import matching', () => {
+  it.each([
+    ['Reverse Holofoil', 'reverse'],
+    ['reverse holo', 'reverse'],
+    ['Holo TG', 'holo'],
+    ['holofoil', 'holo'],
+    ['', null],
+  ])('normalizes variant %j', (input, expected) => {
+    expect(normalizeVariant(input)).toBe(expected);
+  });
+
+  it('ignores accents, punctuation and V suffix separators', () => {
+    expect(normalizeImportText("Zoroark de Hisui-V")).toBe('zoroarkdehisuiv');
+    expect(normalizeImportText('Résolution d’Amaryllis')).toBe('resolutiondamaryllis');
+  });
+
+  it('uses exact set id and collector number despite a card-name typo', () => {
+    const result = matchImportCandidate(
+      { setId: 'swsh11tg', setCode: '', setName: '', cardNumber: 'TG05', cardName: 'Pikatchu', variant: 'holo', notes: '' },
+      [pikachuTg],
+    );
+    expect(result).toMatchObject({ match: pikachuTg, confidence: 'exact-identifiers' });
+  });
+
+  it('selects the sole available variant when the CSV leaves it blank', () => {
+    const result = matchImportCandidate(
+      { setId: 'swsh11tg', setCode: '', setName: '', cardNumber: 'TG05', cardName: 'Pikachu', variant: '', notes: '' },
+      [pikachuTg],
+    );
+    expect(result.match?.variantId).toBe('swsh11tg-TG05::holo');
+  });
+
+  it('uses a translated exact name plus number when the set name has a small typo', () => {
+    const french: ImportCandidate = { ...pikachuTg, cardNames: ['Pikachu'], setNames: ['Origine Perdue', 'Lost Origin Trainer Gallery'] };
+    const result = matchImportCandidate(
+      { setId: '', setCode: '', setName: 'Origine Perdu', cardNumber: 'TG05', cardName: 'Pikachu', variant: 'holo', notes: '' },
+      [french],
+    );
+    expect(result.match?.variantId).toBe(french.variantId);
+  });
+
+  it('rejects equally plausible candidates rather than importing the wrong card', () => {
+    const second = { ...pikachuTg, variantId: 'other::holo', setId: 'other', setCode: null, setNames: ['Lost Origins Trainer Galery'] };
+    const result = matchImportCandidate(
+      { setId: '', setCode: '', setName: 'Lost Origin Trainer Galery', cardNumber: 'TG05', cardName: 'Pikachu', variant: 'holo', notes: '' },
+      [pikachuTg, second],
+    );
+    expect(result.match).toBeNull();
+    expect(result.reason).toMatch(/ambiguous/i);
+  });
+
+  it('exports original failed data with correction columns', () => {
+    const report = serializeImportErrors([
+      { line: 9, message: 'No card matched this row', suggestion: 'Check set or card number', source: { card_name: 'Pikatchu', set_id: 'swsh11tg' } },
+    ]);
+    const parsed = Papa.parse<Record<string, string>>(report, { header: true });
+    expect(parsed.data[0]).toMatchObject({
+      import_line: '9',
+      import_error: 'No card matched this row',
+      import_suggestion: 'Check set or card number',
+      card_name: 'Pikatchu',
+      set_id: 'swsh11tg',
+    });
   });
 });

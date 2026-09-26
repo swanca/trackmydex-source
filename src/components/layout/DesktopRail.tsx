@@ -15,6 +15,7 @@ import {
   UserIcon,
 } from './icons';
 import { LogoMark } from './Logo';
+import { KoFiLink } from './KoFiLink';
 
 /**
  * Desktop navigation.
@@ -45,12 +46,13 @@ export function DesktopRail({
 }) {
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-[232px] flex-col border-r border-hairline bg-[color-mix(in_srgb,var(--color-ink)_70%,transparent)] px-4 py-6 backdrop-blur-xl lg:flex">
-      <Link href="/" className="mb-8 flex items-center gap-2.5 px-2">
+      <Link href="/" className="mb-3 flex items-center gap-2.5 px-2">
         <LogoMark className="size-8" />
         <span className="font-display text-[1.0625rem] font-bold tracking-[-0.02em]">
           TrackMyDex
         </span>
       </Link>
+      <KoFiLink />
 
       <nav aria-label={labels.home} className="flex flex-1 flex-col gap-1">
         <RailItem href="/" label={labels.home} icon={<HomeIcon className="size-5" />} exact />

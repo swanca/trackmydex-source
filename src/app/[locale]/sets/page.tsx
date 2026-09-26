@@ -12,6 +12,7 @@ import { SetSearch } from '@/components/sets/SetSearch';
 import { EraDisclosure } from '@/components/sets/EraDisclosure';
 import { eraLabel, type EraTranslator } from '@/lib/catalog/eras';
 import { FEATURED_SET_IDS, isJapanOnly } from '@/lib/catalog/featured-sets';
+import { localizedAlternates } from '@/lib/seo';
 
 export async function generateMetadata({
   params,
@@ -20,7 +21,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: 'meta' });
-  return { title: t('setsTitle'), description: t('setsDescription') };
+  return { title: t('setsTitle'), description: t('setsDescription'), alternates: localizedAlternates(locale, '/sets') };
 }
 
 /**

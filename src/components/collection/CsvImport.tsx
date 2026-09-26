@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Field';
 import { cn } from '@/lib/cn';
+import { serializeImportErrors } from '@/lib/csv/import-normalize';
 
 interface PreviewRow {
   line: number;
@@ -17,6 +18,8 @@ interface PreviewRow {
   language?: string;
   condition?: string;
   existingQuantity?: number;
+  suggestion?: string;
+  source?: Record<string, string>;
 }
 
 interface Preview {
@@ -104,6 +107,26 @@ export function CsvImport() {
     ? preview.counts.ready + (strategy === 'skip' ? 0 : preview.counts.duplicate)
     : 0;
 
+  function downloadErrors() {
+    if (!preview) return;
+    const errors = preview.rows
+      .filter((row) => row.status === 'error' && row.message && row.source)
+      .map((row) => ({
+        line: row.line,
+        message: row.message!,
+        suggestion: row.suggestion,
+        source: row.source!,
+      }));
+    if (errors.length === 0) return;
+    const blob = new Blob([`\uFEFF${serializeImportErrors(errors)}`], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `trackmydex-import-errors-${new Date().toISOString().slice(0, 10)}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div className="space-y-4">
       <div>
@@ -150,6 +173,12 @@ export function CsvImport() {
             ) : null}
           </div>
 
+          {preview.counts.error > 0 ? (
+            <Button variant="secondary" size="sm" onClick={downloadErrors}>
+              {t('csv.downloadErrors')}
+            </Button>
+          ) : null}
+
           {preview.counts.duplicate > 0 ? (
             <Select
               label={t('csv.duplicateStrategy')}
@@ -172,7 +201,10 @@ export function CsvImport() {
                     </td>
                     <td className="px-1 py-2">
                       {row.status === 'error' ? (
-                        <span className="text-rose">{row.message}</span>
+                        <span className="text-rose">
+                          {row.message}
+                          {row.suggestion ? <span className="mt-0.5 block text-faint">{row.suggestion}</span> : null}
+                        </span>
                       ) : (
                         <>
                           <span className="font-medium text-paper">{row.cardName}</span>

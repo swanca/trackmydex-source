@@ -32,7 +32,7 @@ const schema = z.object({
     .string()
     .min(16, 'BETTER_AUTH_SECRET must be at least 16 characters; generate one with `openssl rand -base64 32`'),
 
-  AUTH_REQUIRE_EMAIL_VERIFICATION: booleanish.default(false),
+  AUTH_REQUIRE_EMAIL_VERIFICATION: booleanish.default(true),
   AUTH_ALLOW_SIGNUP: booleanish.default(true),
   ADMIN_EMAILS: z
     .string()
@@ -151,10 +151,10 @@ export const hasMailer = Boolean(env.SMTP_URL);
 export function legalIdentity() {
   const host = new URL(env.APP_URL).hostname.replace(/^www\./, '');
   return {
-    publisher: env.LEGAL_PUBLISHER || host,
+    publisher: env.LEGAL_PUBLISHER || 'Swan Carenini',
     contact: env.LEGAL_CONTACT_EMAIL || `contact@${host}`,
-    address: env.LEGAL_ADDRESS,
-    jurisdiction: env.LEGAL_JURISDICTION,
+    address: env.LEGAL_ADDRESS || 'La Farlède, France',
+    jurisdiction: env.LEGAL_JURISDICTION || 'France',
     site: host,
   };
 }

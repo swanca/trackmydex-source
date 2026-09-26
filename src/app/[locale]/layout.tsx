@@ -56,9 +56,6 @@ export async function generateMetadata({
     },
     formatDetection: { telephone: false },
     openGraph: { type: 'website', siteName: 'TrackMyDex', locale },
-    alternates: {
-      languages: Object.fromEntries(routing.locales.map((l) => [l, `/${l}`])),
-    },
   };
 }
 

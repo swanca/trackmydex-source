@@ -9,6 +9,7 @@ import { EmptyState } from '@/components/ui/States';
 import { Pagination } from '@/components/ui/Pagination';
 import { SealedTile } from '@/components/sealed/SealedTile';
 import { SealedFilters } from '@/components/sealed/SealedFilters';
+import { localizedAlternates } from '@/lib/seo';
 
 export async function generateMetadata({
   params,
@@ -17,7 +18,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: 'meta' });
-  return { title: t('sealedTitle'), description: t('sealedDescription') };
+  return { title: t('sealedTitle'), description: t('sealedDescription'), alternates: localizedAlternates(locale, '/sealed') };
 }
 
 const PAGE_SIZE = 48;

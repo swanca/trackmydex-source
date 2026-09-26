@@ -1,9 +1,10 @@
 import { sql } from 'drizzle-orm';
 import { db, type SqlRow } from '@/db';
-import type { CardLanguage, Currency } from '@/db/schema/enums';
-import { convert, money, type FxRates, type Money } from '@/lib/pricing/money';
+import type { CardLanguage, Condition, Currency } from '@/db/schema/enums';
+import { type FxRates, type Money } from '@/lib/pricing/money';
+import { valueStack, type StoredPrice } from '@/lib/pricing/select';
 import { getFxRates } from './fx';
-import { SUBSET_PAIRS } from '@/lib/catalog/subsets';
+import { parentSetId, SUBSET_PAIRS } from '@/lib/catalog/subsets';
 
 /**
  * A collection, arranged the way collectors think about it: by set.
@@ -29,6 +30,8 @@ export interface GroupedCard {
   language: string;
   condition: string;
   quantity: number;
+  /** Condition/language adjusted value of one copy, used for comparable sorting. */
+  unitValue: Money | null;
   value: Money | null;
 }
 
@@ -60,7 +63,7 @@ export interface GroupedCollection {
   asian: CollectionSetGroup[];
 }
 
-interface RawRow {
+export interface CollectionGroupSourceRow {
   id: string;
   cardId: string;
   cardName: string;
@@ -69,7 +72,7 @@ interface RawRow {
   variantId: string;
   variantType: string;
   language: string;
-  condition: string;
+  condition: Condition;
   quantity: number;
   setId: string;
   setName: string;
@@ -78,25 +81,57 @@ interface RawRow {
   setSize: number;
   releaseDate: string | null;
   originLanguage: string;
+  setLanguages: CardLanguage[];
   sortIndex: number;
-  market: string | null;
-  currency: Currency | null;
+  price: StoredPrice | null;
+}
+
+interface RawRow extends Omit<CollectionGroupSourceRow, 'price'> {
+  priceProvider: string | null;
+  priceCurrency: Currency | null;
+  priceMarket: string | null;
+  priceConfidence: 'exact' | 'approximate' | null;
+  priceReason: string | null;
+  priceUrl: string | null;
+  priceFetchedAt: Date | null;
 }
 
 export async function listCollectionBySet(
   userId: string,
-  cardLanguage: CardLanguage,
+  displayLanguage: CardLanguage,
   displayCurrency: Currency,
 ): Promise<GroupedCollection> {
   const rates: FxRates = await getFxRates();
 
-  const result = await db.execute<SqlRow<RawRow>>(sql`
+  const result = await db.execute<SqlRow<RawRow>>(collectionRowsQuery(userId, displayLanguage));
+
+  const rows: CollectionGroupSourceRow[] = result.rows.map((row) => ({
+    ...row,
+    setLanguages: row.setLanguages ?? [],
+    price: row.priceProvider && row.priceCurrency
+      ? {
+          provider: row.priceProvider,
+          currency: row.priceCurrency,
+          market: row.priceMarket,
+          confidence: row.priceConfidence ?? 'approximate',
+          approximationReason: row.priceReason,
+          sourceUrl: row.priceUrl,
+          fetchedAt: row.priceFetchedAt ?? new Date(),
+        }
+      : null,
+  }));
+
+  return buildCollectionGroups(rows, displayCurrency, rates);
+}
+
+export function collectionRowsQuery(userId: string, displayLanguage: CardLanguage) {
+  return sql`
     select
       ci.id,
       ci.card_id                                    as "cardId",
-      coalesce(ct.name, c.name)                     as "cardName",
-      coalesce(ct.local_id, c.local_id)             as "localId",
-      coalesce(ct.image_base_url, c.image_base_url, c.fallback_image_url) as "imageBaseUrl",
+      coalesce(owned_ct.name, c.name)                as "cardName",
+      coalesce(owned_ct.local_id, c.local_id)        as "localId",
+      coalesce(owned_ct.image_base_url, c.image_base_url, c.fallback_image_url) as "imageBaseUrl",
       ci.card_variant_id                            as "variantId",
       v.variant_type                                as "variantType",
       ci.language, ci.condition, ci.quantity,
@@ -104,12 +139,26 @@ export async function listCollectionBySet(
       coalesce(st.name, s.name)                     as "setName",
       s.logo_url                                    as "setLogoUrl",
       s.code                                        as "setCode",
-      s.card_count_total                            as "setSize",
+      (s.card_count_total + coalesce((
+        select sum(child.card_count_total)::int
+        from set child
+        join (values ${sql.join(
+          SUBSET_PAIRS.map((pair) => sql`(${pair[0]}, ${pair[1]})`),
+          sql`, `,
+        )}) as subset_size(child, parent) on subset_size.child = child.id
+        where subset_size.parent = s.id
+      ), 0))                                         as "setSize",
       s.release_date::text                          as "releaseDate",
       s.origin_language                             as "originLanguage",
+      s.languages::text[]                          as "setLanguages",
       c.sort_index                                  as "sortIndex",
-      pr.market::text                               as "market",
-      pr.currency                                   as "currency"
+      pr.provider                                   as "priceProvider",
+      pr.market::text                               as "priceMarket",
+      pr.currency                                   as "priceCurrency",
+      pr.confidence                                 as "priceConfidence",
+      pr.approximation_reason                       as "priceReason",
+      pr.source_url                                 as "priceUrl",
+      pr.fetched_at                                 as "priceFetchedAt"
     from collection_item ci
     join card c on c.id = ci.card_id
     join card_variant v on v.id = ci.card_variant_id
@@ -122,11 +171,13 @@ export async function listCollectionBySet(
     )}) as sub(child, parent) on sub.child = c.set_id
     join set s on s.id = coalesce(sub.parent, c.set_id)
     left join set_translation st
-      on st.set_id = s.id and st.language = ${cardLanguage}::card_language
-    left join card_translation ct
-      on ct.card_id = c.id and ct.language = ${cardLanguage}::card_language
+      on st.set_id = s.id and st.language = ${displayLanguage}::card_language
+    left join card_translation owned_ct
+      on owned_ct.card_id = c.id and owned_ct.language = ci.language
     left join lateral (
-      select p.market, p.currency from card_price p
+      select p.provider, p.market, p.currency, p.confidence,
+             p.approximation_reason, p.source_url, p.fetched_at
+      from card_price p
       where p.card_variant_id = ci.card_variant_id and p.market is not null
       order by (p.confidence = 'exact') desc,
                array_position(array['tcgdex.cardmarket','tcgdex.tcgplayer','tcgcsv.tcgplayer','pokemontcgio'], p.provider) nulls last
@@ -134,21 +185,40 @@ export async function listCollectionBySet(
     ) pr on true
     where ci.user_id = ${userId}
     order by s.release_date desc nulls last, s.id, c.sort_index
-  `);
+  `;
+}
 
+export function buildCollectionGroups(
+  rows: readonly CollectionGroupSourceRow[],
+  displayCurrency: Currency,
+  rates: FxRates,
+): GroupedCollection {
   const groups = new Map<string, CollectionSetGroup & { originLanguage: string }>();
 
-  for (const row of result.rows) {
+  for (const row of rows) {
     const quantity = Number(row.quantity);
-    const unit =
-      row.market && row.currency
-        ? convert(money(Number(row.market), row.currency), displayCurrency, rates)
-        : null;
+    const valuation = row.price
+      ? valueStack(
+          {
+            prices: [row.price],
+            quantity,
+            condition: row.condition,
+            language: row.language as CardLanguage,
+            setOriginLanguage: row.originLanguage as CardLanguage,
+            setLanguages: row.setLanguages,
+          },
+          displayCurrency,
+          rates,
+        )
+      : null;
+    const value = valuation && valuation.total.minor > 0 ? valuation.total : null;
+    const unitValue = valuation && valuation.unit.minor > 0 ? valuation.unit : null;
+    const groupedSetId = parentSetId(row.setId) ?? row.setId;
 
-    let group = groups.get(row.setId);
+    let group = groups.get(groupedSetId);
     if (!group) {
       group = {
-        setId: row.setId,
+        setId: groupedSetId,
         setName: row.setName,
         setLogoUrl: row.setLogoUrl,
         setCode: row.setCode,
@@ -160,12 +230,12 @@ export async function listCollectionBySet(
         cards: [],
         originLanguage: row.originLanguage,
       };
-      groups.set(row.setId, group);
+      groups.set(groupedSetId, group);
     }
 
     group.uniqueCards += 1;
     group.totalCards += quantity;
-    if (unit) group.value = { minor: group.value.minor + unit.minor * quantity, currency: displayCurrency };
+    if (value) group.value = { minor: group.value.minor + value.minor, currency: displayCurrency };
 
     group.cards.push({
       id: row.id,
@@ -178,7 +248,8 @@ export async function listCollectionBySet(
       language: row.language,
       condition: row.condition,
       quantity,
-      value: unit ? { minor: unit.minor * quantity, currency: displayCurrency } : null,
+      unitValue,
+      value,
     });
   }
 
