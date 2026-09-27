@@ -29,6 +29,33 @@ const LOCAL_ASSET_BASE = process.env.NEXT_PUBLIC_ASSET_BASE_URL ?? '';
 const SIZED_TCGPLAYER_IMAGE =
   /^(https:\/\/tcgplayer-cdn\.tcgplayer\.com\/product\/\d+)_[a-z0-9_]+\.(jpe?g|png)$/i;
 
+/** Build the public TCGplayer CDN image used when the primary catalog has no art. */
+export function tcgplayerImageUrl(productId: string | number, quality: ImageQuality = 'low'): string {
+  const suffix = quality === 'low' ? '200w' : 'in_1000x1000';
+  return `https://tcgplayer-cdn.tcgplayer.com/product/${encodeURIComponent(String(productId))}_${suffix}.jpg`;
+}
+
+/**
+ * Explicit secondary-art mappings for McDonald's printings. Only provider set
+ * ids verified to exist are listed; unknown sets return no URL rather than a
+ * plausible-looking broken image.
+ */
+export const SECONDARY_ART_SET_IDS: Readonly<Record<string, string>> = {
+  '2011bw': 'mcd11',
+  '2012bw': 'mcd12',
+  '2016xy': 'mcd16',
+  '2019sm': 'mcd19',
+  '2021swsh': 'mcd21',
+  '2022swsh': 'mcd22',
+};
+
+export function pokemonTcgImageUrl(setId: string, localId: string): string | null {
+  const providerSetId = SECONDARY_ART_SET_IDS[setId];
+  const number = localId.replace(/^0+/, '');
+  if (!providerSetId || !/^\d+$/.test(number)) return null;
+  return `https://images.pokemontcg.io/${providerSetId}/${number}.png`;
+}
+
 export function cardImage(
   baseUrl: string | null | undefined,
   quality: ImageQuality = 'low',

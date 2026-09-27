@@ -198,8 +198,10 @@ describe('message keys used by the code', () => {
   const used = new Map<string, string>();
   for (const file of sources(SOURCE_DIR)) {
     const text = readFileSync(file, 'utf8');
+    const namespace = text.match(/\bconst\s+t\s*=\s*useTranslations\(\s*['"]([\w.]+)['"]\s*\)/)?.[1];
     for (const match of text.matchAll(CALL)) {
-      const key = match[1];
+      const localKey = match[1];
+      const key = namespace && localKey ? `${namespace}.${localKey}` : localKey;
       if (key && key.includes('.') && !used.has(key)) used.set(key, file);
     }
   }

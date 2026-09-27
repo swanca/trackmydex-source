@@ -109,6 +109,7 @@ export default async function LocaleLayout({
               profile: t('nav.profile'),
               admin: t('nav.admin'),
               signIn: t('nav.signIn'),
+              tutorial: t('nav.tutorial'),
             }}
             isAdmin={isAdmin(user)}
             signedIn={Boolean(user)}

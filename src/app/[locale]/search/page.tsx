@@ -130,6 +130,7 @@ export default async function SearchPage({
                         imageBaseUrl: hit.imageBaseUrl,
                         rarity: hit.rarity,
                         quantity: hit.quantity,
+                        defaultVariantQuantity: hit.defaultVariantQuantity,
                         wishlisted: hit.wishlisted,
                         variants: hit.variants,
                         defaultVariantId: hit.defaultVariantId,

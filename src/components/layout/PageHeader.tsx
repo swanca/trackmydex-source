@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Link } from '@/i18n/routing';
 import { cn } from '@/lib/cn';
 import { ChevronLeftIcon } from './icons';
+import { HistoryBackLink } from './HistoryBackLink';
 
 /**
  * Page header.
@@ -15,6 +16,7 @@ export function PageHeader({
   eyebrow,
   backHref,
   backLabel,
+  backMode = 'link',
   actions,
   className,
 }: {
@@ -23,19 +25,24 @@ export function PageHeader({
   eyebrow?: ReactNode;
   backHref?: string;
   backLabel?: string;
+  backMode?: 'link' | 'history';
   actions?: ReactNode;
   className?: string;
 }) {
   return (
     <header className={cn('px-5 pt-1 pb-3 lg:px-8 lg:pt-3', className)}>
       {backHref ? (
-        <Link
-          href={backHref}
-          className="mb-2 -ml-1.5 inline-flex items-center gap-1 rounded-lg py-1 pr-2 pl-1 text-[0.8125rem] text-muted transition-colors hover:text-paper"
-        >
-          <ChevronLeftIcon className="size-4" />
-          {backLabel}
-        </Link>
+        backMode === 'history' ? (
+          <HistoryBackLink fallbackHref={backHref} label={backLabel} />
+        ) : (
+          <Link
+            href={backHref}
+            className="mb-2 -ml-1.5 inline-flex items-center gap-1 rounded-lg py-1 pr-2 pl-1 text-[0.8125rem] text-muted transition-colors hover:text-paper"
+          >
+            <ChevronLeftIcon className="size-4" />
+            {backLabel}
+          </Link>
+        )
       ) : null}
 
       {/* Actions drop below the title on a phone. Held on one row they are

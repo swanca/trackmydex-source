@@ -153,9 +153,10 @@ async function buildFeaturedRails(
   const rails: FeaturedRail[] = [];
 
   const [newest] = await recentSets(cardLanguage, 1);
-  const requested = ['swsh11', 'swsh7', 'swsh10.5'] as const;
-  const [headline, lostOrigin, evolvingSkies, pokemonGo, vintage, overall, setNames] = await Promise.all([
+  const requested = ['30th', 'swsh11', 'swsh7', 'swsh10.5'] as const;
+  const [headline, anniversary, lostOrigin, evolvingSkies, pokemonGo, vintage, overall, setNames] = await Promise.all([
     newest ? topCards(cardLanguage, { setIds: [newest.id], limit: 12 }) : Promise.resolve([]),
+    topCards(cardLanguage, { setIds: setIdWithSubsets('30th'), limit: 12 }),
     topCards(cardLanguage, { setIds: setIdWithSubsets('swsh11'), limit: 12 }),
     topCards(cardLanguage, { setIds: setIdWithSubsets('swsh7'), limit: 12 }),
     topCards(cardLanguage, { setIds: setIdWithSubsets('swsh10.5'), limit: 12 }),
@@ -170,6 +171,16 @@ async function buildFeaturedRails(
       title: newest.name,
       href: `/sets/${newest.id}`,
       cards: toCards(headline, displayCurrency, rates),
+    });
+  }
+
+  const anniversaryTitle = setNames.get('30th');
+  if (anniversaryTitle && anniversary.length > 0 && newest?.id !== '30th') {
+    rails.push({
+      labelKey: null,
+      title: anniversaryTitle,
+      href: '/sets/30th',
+      cards: toCards(anniversary, displayCurrency, rates),
     });
   }
 

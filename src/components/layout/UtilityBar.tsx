@@ -5,6 +5,7 @@ import { AccountMenu } from './AccountMenu';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { Logo } from './Logo';
 import { KoFiLink } from './KoFiLink';
+import { WhatnotLink } from './WhatnotLink';
 
 /**
  * The top bar, on every page.
@@ -26,7 +27,7 @@ export async function UtilityBar() {
   const user = await getCurrentUser();
 
   return (
-    <div className="pt-safe flex items-center gap-2 px-5 pt-3 lg:px-8 lg:pt-5">
+    <div className="pt-safe flex items-center gap-1 px-3 pt-3 sm:gap-2 sm:px-5 lg:px-8 lg:pt-5">
       {/* Padded to a 44px target: the mark alone is 28px, which is below the
           minimum anyone can reliably hit with a thumb. */}
       <Link
@@ -37,6 +38,7 @@ export async function UtilityBar() {
         <Logo markClassName="size-7" showWordmark={false} />
       </Link>
       <KoFiLink compact />
+      <WhatnotLink compact />
 
       <div className="ml-auto flex items-center gap-2">
         <LanguageSwitcher label={t('nav.language')} />

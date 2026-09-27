@@ -12,7 +12,6 @@ export default function robots(): MetadataRoute.Robots {
         '/*/auth/',
         '/*/collection',
         '/*/profile',
-        '/*/scan',
         '/*/wishlist',
         '/*/~offline',
       ],

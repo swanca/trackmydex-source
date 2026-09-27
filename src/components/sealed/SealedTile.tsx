@@ -1,4 +1,5 @@
 import { getTranslations } from 'next-intl/server';
+import { Link } from '@/i18n/routing';
 import type { Currency } from '@/db/schema/enums';
 import { convert, formatMoney, money, type FxRates } from '@/lib/pricing/money';
 import { Badge } from '@/components/ui/Badge';
@@ -52,7 +53,10 @@ export async function SealedTile({
 
   return (
     <article className="surface flex flex-col gap-3 rounded-[var(--radius-tile)] p-3">
-      <div className="relative aspect-square overflow-hidden rounded-xl bg-[rgb(148_163_208/0.06)]">
+      <Link
+        href={`/sealed/${encodeURIComponent(product.id)}`}
+        className="relative block aspect-square overflow-hidden rounded-xl bg-[rgb(148_163_208/0.06)]"
+      >
         {product.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element -- TCGplayer's CDN
           // is not in the Next image allow-list, and these are already 200px
@@ -73,7 +77,7 @@ export async function SealedTile({
             ×{product.ownedQuantity}
           </span>
         ) : null}
-      </div>
+      </Link>
 
       <div className="min-w-0 flex-1 space-y-1.5">
         <div className="flex flex-wrap items-center gap-1.5">
@@ -82,7 +86,11 @@ export async function SealedTile({
             <Badge tone="neutral">{product.language.toUpperCase()}</Badge>
           ) : null}
         </div>
-        <h3 className="text-[0.8125rem] font-medium leading-snug text-paper">{product.name}</h3>
+        <h3 className="text-[0.8125rem] font-medium leading-snug text-paper">
+          <Link href={`/sealed/${encodeURIComponent(product.id)}`} className="hover:text-azure">
+            {product.name}
+          </Link>
+        </h3>
         {/* The set's own name in the reader's language when we have it;
             TCGplayer's English group name is the fallback. */}
         <p className="text-[0.6875rem] text-faint">{product.setLabel ?? product.groupName}</p>

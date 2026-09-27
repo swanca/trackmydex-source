@@ -6,6 +6,8 @@ import { LANGUAGE_LABELS, toUiLocale } from '@/lib/catalog/languages';
 import { getScanIndexStats } from '@/server/services/scan';
 import { PageHeader, PageSection } from '@/components/layout/PageHeader';
 import { CardScanner } from '@/components/scan/CardScanner';
+import { MobileHandoff } from '@/components/scan/MobileHandoff';
+import { GradePanel } from '@/components/scan/GradePanel';
 import { Badge } from '@/components/ui/Badge';
 
 export async function generateMetadata({
@@ -39,6 +41,16 @@ export default async function ScanPage({
       <PageHeader title={t('scan.title')} eyebrow={t('scan.subtitle')} />
 
       <PageSection className="space-y-4">
+        <a href="#grade" className="inline-flex min-h-11 items-center text-sm font-semibold text-azure underline underline-offset-4">
+          {t('scan.gradeQuickLink')}
+        </a>
+        <MobileHandoff
+          title={t('scan.desktopTitle')}
+          body={t('scan.desktopBody')}
+          openOnPhone={t('scan.openOnPhone')}
+          copyLink={t('scan.copyLink')}
+          copied={t('scan.copied')}
+        />
         {/* The printed language cannot be read off the artwork, so it is a
             setting the user makes, shown here rather than assumed silently. */}
         <div className="surface-flat flex items-center justify-between gap-3 rounded-[var(--radius-tile)] px-4 py-3">
@@ -60,6 +72,7 @@ export default async function ScanPage({
             start: t('scan.start'),
             stop: t('scan.stop'),
             capture: t('scan.capture'),
+            choosePhoto: t('scan.choosePhoto'),
             retake: t('scan.retake'),
             scanning: t('scan.scanning'),
             noCamera: t('scan.noCamera'),
@@ -81,6 +94,8 @@ export default async function ScanPage({
           viewMarket: t('scan.viewMarket'),
           }}
         />
+
+        <GradePanel />
 
         <p className="type-meta px-1 text-[0.75rem]">{t('scan.privacy')}</p>
       </PageSection>

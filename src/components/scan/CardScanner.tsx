@@ -2,17 +2,20 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/routing';
 import { cardmarketSearchUrl } from '@/lib/pricing/links';
 import { cn } from '@/lib/cn';
 import { detectCards, wholeFrame, type DetectedCard } from '@/lib/scan/detect';
 import { assessFraming, READY_FRAMES, type FramingState } from '@/lib/scan/framing';
 import { fingerprint } from '@/lib/scan/phash';
+import { rectifyCard } from '@/lib/scan/rectify';
 import { formatMoney, type Money } from '@/lib/pricing/money';
 import { cardImage, CARD_ASPECT } from '@/lib/images';
 import { adjustQuantity } from '@/lib/api-client';
 import { Button } from '@/components/ui/Button';
 import { Sheet } from '@/components/ui/Sheet';
+import { GradePhoto } from './GradePhoto';
 
 interface Candidate {
   cardId: string;
@@ -41,6 +44,7 @@ export interface ScannerLabels {
   start: string;
   stop: string;
   capture: string;
+  choosePhoto: string;
   retake: string;
   scanning: string;
   noCamera: string;
@@ -108,9 +112,12 @@ export function CardScanner({
   indexComplete: boolean;
 }) {
   const router = useRouter();
+  const t = useTranslations('scan');
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const analysisCanvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const captureInFlightRef = useRef(false);
 
   const [active, setActive] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -171,14 +178,16 @@ export function CardScanner({
    */
   function look(): { regions: DetectedCard[]; state: FramingState } | null {
     const video = videoRef.current;
-    const canvas = canvasRef.current;
+    const canvas = analysisCanvasRef.current;
     if (!video || !canvas || video.videoWidth === 0) return null;
 
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    // Detection does not need the full camera frame. Keeping this pass at
+    // 640px avoids repeatedly copying 1080p RGBA buffers while hunting.
+    canvas.width = Math.min(640, video.videoWidth);
+    canvas.height = Math.max(1, Math.round((video.videoHeight / video.videoWidth) * canvas.width));
     const context = canvas.getContext('2d', { willReadFrequently: true });
     if (!context) return null;
-    context.drawImage(video, 0, 0);
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
     const frame = context.getImageData(0, 0, canvas.width, canvas.height);
     const detected = detectCards(frame);
@@ -194,11 +203,52 @@ export function CardScanner({
    * paint an error over the viewfinder - the next frame is a fraction of a
    * second away.
    */
+  async function identifyFrame(
+    context: CanvasRenderingContext2D,
+    canvas: HTMLCanvasElement,
+    quiet: boolean,
+    stopCamera: boolean,
+    alreadyRectified = false,
+  ): Promise<boolean> {
+    const frame = context.getImageData(0, 0, canvas.width, canvas.height);
+    const detected = alreadyRectified ? [] : detectCards(frame);
+    const regions = detected.length > 0 ? detected : [wholeFrame(frame)];
+
+    // Hash each detected region separately - a fingerprint of the whole
+    // frame would describe the table, not a card.
+    const fingerprints = regions.map((box) => {
+      if (box.corners) return fingerprint(rectifyCard(frame, box.corners));
+      const region = context.getImageData(box.x, box.y, box.width, box.height);
+      return fingerprint({ data: region.data, width: region.width, height: region.height });
+    });
+
+    const response = await fetch('/api/scan/match', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ fingerprints, cardLanguage, displayCurrency }),
+    });
+    if (!response.ok) {
+      const body = (await response.json().catch(() => ({}))) as { error?: string };
+      throw new Error(body.error ?? 'match failed');
+    }
+
+    const body = (await response.json()) as { results: MatchResult[] };
+    const confident = body.results.some((result) => result.confident);
+    if (quiet && !confident) return false;
+
+    setResults(body.results);
+    setBoxes(regions);
+    setShot(canvas.toDataURL('image/jpeg', 0.7));
+    if (stopCamera) stop();
+    return true;
+  }
+
   async function capture(quiet = false): Promise<boolean> {
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    if (!video || !canvas || video.videoWidth === 0) return false;
+    if (!video || !canvas || video.videoWidth === 0 || captureInFlightRef.current) return false;
 
+    captureInFlightRef.current = true;
     setBusy(true);
     if (!quiet) setError(null);
     try {
@@ -207,46 +257,46 @@ export function CardScanner({
       const context = canvas.getContext('2d', { willReadFrequently: true });
       if (!context) throw new Error('canvas');
       context.drawImage(video, 0, 0);
-
-      const frame = context.getImageData(0, 0, canvas.width, canvas.height);
-      const detected = detectCards(frame);
-      const regions = detected.length > 0 ? detected : [wholeFrame(frame)];
-
-      // Hash each detected region separately - a fingerprint of the whole
-      // frame would describe the table, not a card.
-      const fingerprints = regions.map((box) => {
-        const region = context.getImageData(box.x, box.y, box.width, box.height);
-        return fingerprint({
-          data: region.data,
-          width: region.width,
-          height: region.height,
-        });
-      });
-
-      const response = await fetch('/api/scan/match', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ fingerprints, cardLanguage, displayCurrency }),
-      });
-      if (!response.ok) throw new Error((await response.json()).error ?? 'match failed');
-
-      const body = (await response.json()) as { results: MatchResult[] };
-      const confident = body.results.some((result) => result.confident);
-
-      // The automatic loop only settles on a confident read. Anything less and
-      // it keeps looking, because the next frame - a steadier hand, better
-      // light - is usually better than asking the user to judge a bad one.
-      if (quiet && !confident) return false;
-
-      setResults(body.results);
-      setBoxes(regions);
-      setShot(canvas.toDataURL('image/jpeg', 0.7));
-      stop();
-      return true;
+      return await identifyFrame(context, canvas, quiet, true);
     } catch (cause) {
       if (!quiet) setError(cause instanceof Error ? cause.message : labels.noMatch);
       return false;
     } finally {
+      captureInFlightRef.current = false;
+      setBusy(false);
+    }
+  }
+
+  /**
+   * Fallback for browsers without camera permission and difficult holo/sleeved
+   * cards. It uses the exact same fingerprint pipeline as the live camera.
+   */
+  async function scanPhoto(file: File, alreadyRectified = false) {
+    if (captureInFlightRef.current) return;
+    captureInFlightRef.current = true;
+    setBusy(true);
+    setError(null);
+    stop();
+
+    const objectUrl = URL.createObjectURL(file);
+    try {
+      const image = new Image();
+      image.decoding = 'async';
+      image.src = objectUrl;
+      await image.decode();
+      const canvas = canvasRef.current;
+      if (!canvas || !image.naturalWidth || !image.naturalHeight) throw new Error('image');
+      canvas.width = image.naturalWidth;
+      canvas.height = image.naturalHeight;
+      const context = canvas.getContext('2d', { willReadFrequently: true });
+      if (!context) throw new Error('canvas');
+      context.drawImage(image, 0, 0);
+      await identifyFrame(context, canvas, false, false, alreadyRectified);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : labels.noMatch);
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+      captureInFlightRef.current = false;
       setBusy(false);
     }
   }
@@ -423,6 +473,7 @@ export function CardScanner({
         ) : null}
 
         <canvas ref={canvasRef} className="hidden" />
+        <canvas ref={analysisCanvasRef} className="hidden" />
       </div>
 
       {error ? (
@@ -433,9 +484,24 @@ export function CardScanner({
 
       <div className="flex gap-2">
         {!active ? (
-          <Button onClick={start} fullWidth size="lg">
-            {shot ? labels.retake : labels.start}
-          </Button>
+          <>
+            <Button onClick={start} fullWidth size="lg">
+              {shot ? labels.retake : labels.start}
+            </Button>
+            <label className="inline-flex shrink-0 cursor-pointer items-center justify-center rounded-xl border border-line px-3 text-center text-[0.75rem] font-semibold transition-colors hover:border-azure">
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+                className="sr-only"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  event.currentTarget.value = '';
+                  if (file) void scanPhoto(file);
+                }}
+              />
+              {labels.choosePhoto}
+            </label>
+          </>
         ) : (
           <>
             <Button onClick={() => void capture(false)} loading={busy} fullWidth size="lg">
@@ -539,6 +605,22 @@ export function CardScanner({
             );
           })}
         </section>
+      ) : null}
+
+      {!active && !results.some((result) => result.confident) ? (
+        <details className="surface-flat rounded-[var(--radius-tile)] p-4">
+          <summary className="cursor-pointer text-sm font-semibold">{t('manualCrop')}</summary>
+          <div className="mt-3">
+            <GradePhoto
+              label={labels.choosePhoto}
+              labels={{ choose: labels.choosePhoto, camera: t('inspection.camera'), gallery: t('inspection.gallery'), corners: t('inspection.cropHelp'), confirm: t('inspection.confirm'),
+                ready: t('inspection.ready'), error: t('manualCropError'), corner: t('inspection.corner') }}
+              disabled={busy}
+              minCropWidth={252}
+              onChange={(file) => { if (file) void scanPhoto(file, true); }}
+            />
+          </div>
+        </details>
       ) : null}
 
       {/* Full shortlist, because rank 1 is wrong often enough that the other

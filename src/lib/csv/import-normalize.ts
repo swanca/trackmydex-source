@@ -1,4 +1,5 @@
 import Papa from 'papaparse';
+import { normalizeSearchToken, numberSearchTokens } from '@/lib/search/normalize';
 
 export type ImportVariant = 'normal' | 'reverse' | 'holo' | 'firstEdition';
 
@@ -122,8 +123,14 @@ export function matchImportCandidate(
   input: ImportMatchInput,
   candidates: readonly ImportCandidate[],
 ): ImportMatchResult {
+  const numberCandidates = new Set(
+    numberSearchTokens(input.cardNumber).map((value) => normalizeSearchToken(value)),
+  );
   const number = normalizeImportText(input.cardNumber);
-  const numbered = candidates.filter((candidate) => normalizeImportText(candidate.localId) === number);
+  if (number) numberCandidates.add(number);
+  const numbered = candidates.filter((candidate) =>
+    numberCandidates.has(normalizeSearchToken(candidate.localId)),
+  );
   if (!number || numbered.length === 0) {
     return { match: null, reason: 'No card matched this collector number', suggestion: 'Check set and card number' };
   }

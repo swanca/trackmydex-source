@@ -84,6 +84,16 @@ describe('catalog cron', () => {
   });
 });
 
+describe('translation sync resilience', () => {
+  it('commits translation batches and exposes absent versus failed sets', () => {
+    const sync = source('src/server/sync/catalog.ts');
+    expect(sync).toContain('const TRANSLATION_BATCH = 100');
+    expect(sync).toContain('translations.${language}.absent');
+    expect(sync).toContain('translations.${language}.failed');
+    expect(sync).toContain("translations.batch_done");
+  });
+});
+
 describe('collection sharing safety', () => {
   it('keeps shared pages out of search while allowing followed links', () => {
     const page = source('src/app/[locale]/shared/[token]/page.tsx');
@@ -114,10 +124,39 @@ describe('collection sharing safety', () => {
 });
 
 describe('Ko-fi support link', () => {
-  it('keeps the official local symbol and visible text in one link', () => {
+  it('keeps the official local symbol in one link', () => {
     const component = source('src/components/layout/KoFiLink.tsx');
     expect(component).toContain('https://ko-fi.com/imfrom');
     expect(component).toContain('/brand/kofi-symbol.avif');
     expect(component).toContain('Buy me a coffee');
+  });
+});
+
+describe('Whatnot referral link', () => {
+  it('uses the owner-provided referral URL without obsolete campaign copy', () => {
+    const component = source('src/components/layout/WhatnotLink.tsx');
+    expect(component).toContain('https://whatnot.com/invite/imfromfar');
+    expect(component).not.toContain('Pokémon 30 ans');
+  });
+});
+
+describe('public tutorial', () => {
+  it('is reachable from the desktop rail, account menu, footer and sitemap', () => {
+    expect(source('src/app/[locale]/tutorial/page.tsx')).toContain("href: '/scan'");
+    expect(source('src/components/layout/DesktopRail.tsx')).toContain('href="/tutorial"');
+    expect(source('src/components/layout/AccountMenu.tsx')).toContain('href="/tutorial"');
+    expect(source('src/components/layout/Footer.tsx')).toContain('href="/tutorial"');
+    expect(source('src/app/sitemap.ts')).toContain("entry('/tutorial')");
+  });
+});
+
+describe('card navigation', () => {
+  it('uses browser history from card detail with a safe set fallback', () => {
+    const page = source('src/app/[locale]/cards/[cardId]/page.tsx');
+    const header = source('src/components/layout/PageHeader.tsx');
+    const historyLink = source('src/components/layout/HistoryBackLink.tsx');
+    expect(page).toContain('backMode="history"');
+    expect(header).toContain("backMode === 'history'");
+    expect(historyLink).toContain('router.back()');
   });
 });

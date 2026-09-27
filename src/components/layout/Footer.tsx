@@ -15,6 +15,9 @@ export async function Footer() {
   return (
     <footer className="mt-12 border-t border-hairline px-5 pt-6 pb-8 lg:px-8">
       <nav className="flex flex-wrap gap-x-5 gap-y-2 text-[0.75rem] text-muted">
+        <Link href="/tutorial" className="transition-colors hover:text-paper">
+          {t('tutorial.title')}
+        </Link>
         <Link href="/methodology" className="transition-colors hover:text-paper">
           {t('methodology.title')}
         </Link>

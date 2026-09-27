@@ -432,9 +432,9 @@ function sortBuckets(map: Map<string, Bucket>): Bucket[] {
 export async function getPortfolioHistory(
   userId: string,
   days = 90,
-): Promise<Array<{ date: string; value: number; currency: Currency }>> {
-  const result = await db.execute<{ captured_on: string; total_value: string; currency: Currency }>(sql`
-    select captured_on, total_value, currency
+): Promise<Array<{ date: string; value: number; currency: Currency; totalCards: number }>> {
+  const result = await db.execute<{ captured_on: string; total_value: string; currency: Currency; total_cards: number }>(sql`
+    select captured_on, total_value, currency, total_cards
     from portfolio_snapshot
     where user_id = ${userId}
       and captured_on >= current_date - ${days}::int
@@ -444,6 +444,7 @@ export async function getPortfolioHistory(
     date: String(row.captured_on).slice(0, 10),
     value: Number(row.total_value),
     currency: row.currency,
+    totalCards: row.total_cards,
   }));
 }
 

@@ -98,6 +98,7 @@ export default async function CardPage({
       <PageHeader
         backHref={`/sets/${encodeURIComponent(card.setId)}`}
         backLabel={card.setName}
+        backMode="history"
         eyebrow={`${eraLabel(t as EraTranslator, card.eraId, card.eraName)} · ${card.seriesName}`}
         title={card.name}
       />

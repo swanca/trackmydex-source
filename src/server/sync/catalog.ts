@@ -13,8 +13,10 @@ import {
 import type { CardLanguage } from '@/db/schema/enums';
 import { ERAS, eraForSeries } from '@/lib/catalog/eras';
 import { cardSortIndex } from '@/lib/catalog/sort';
+import { catalogText } from '@/lib/catalog/text';
 import { env } from '@/lib/env';
 import { mapWithConcurrency } from '@/lib/http';
+import { SECONDARY_ART_SET_IDS } from '@/lib/images';
 import { getCatalogProvider } from '@/providers/catalog';
 import type { ProviderCard, ProviderSet } from '@/providers/catalog/types';
 import { upsertPricesFromCatalog } from './prices';
@@ -60,6 +62,13 @@ export interface CatalogSyncOptions {
 }
 
 const CHUNK = 500;
+/**
+ * Translation requests are deliberately committed in smaller batches than a
+ * full language pass. A provider timeout must not throw away the successful
+ * sets that came before it, and a restarted job should resume from the rows
+ * already written instead of starting a whole language again.
+ */
+const TRANSLATION_BATCH = 100;
 
 function chunk<T>(items: readonly T[], size = CHUNK): T[][] {
   const out: T[][] = [];
@@ -115,7 +124,7 @@ export async function syncCatalog(ctx: SyncContext, options: CatalogSyncOptions 
         providerSeries.map((s, index) => ({
           id: s.id,
           eraId: eraForSeries(s.id),
-          name: s.name,
+          name: catalogText(s.name),
           logoUrl: s.logoUrl ?? null,
           sortOrder: index,
         })),
@@ -216,7 +225,7 @@ async function upsertSeriesFor(
     .map((s, index) => ({
       id: s.id,
       eraId: eraForSeries(s.id),
-      name: s.name,
+      name: catalogText(s.name, language),
       logoUrl: s.logoUrl ?? null,
       sortOrder: 500 + index,
     }));
@@ -247,7 +256,7 @@ async function upsertSets(sets: readonly ProviderSet[]) {
         batch.map((s, index) => ({
           id: s.id,
           seriesId: s.seriesId,
-          name: s.name,
+          name: catalogText(s.name, s.originLanguage ?? 'en'),
           code: s.code ?? null,
           releaseDate: s.releaseDate ?? null,
           cardCountOfficial: s.cardCountOfficial,
@@ -347,8 +356,9 @@ async function syncSetCards(
   ctx.bump('cardsSkipped', cardIds.length - changed.length);
 
   if (changed.length > 0) {
-    await upsertCards(changed, providerSet.id);
+    await upsertCards(changed, providerSet.id, language);
     await upsertVariants(changed);
+    await backfillFallbackImages(changed.map((card) => card.id));
     ctx.bump('cardsUpserted', changed.length);
   }
 
@@ -368,7 +378,7 @@ async function syncSetCards(
     .where(eq(set.id, providerSet.id));
 }
 
-async function upsertCards(cards: readonly ProviderCard[], setId: string) {
+async function upsertCards(cards: readonly ProviderCard[], setId: string, language: CardLanguage = 'en') {
   for (const batch of chunk(cards)) {
     await db
       .insert(card)
@@ -378,7 +388,7 @@ async function upsertCards(cards: readonly ProviderCard[], setId: string) {
           setId: c.setId || setId,
           localId: c.localId,
           sortIndex: String(cardSortIndex(c.localId)),
-          name: c.name,
+          name: catalogText(c.name, language),
           category: c.category,
           rarity: c.rarity ?? null,
           illustrator: c.illustrator ?? null,
@@ -456,6 +466,42 @@ async function upsertVariants(cards: readonly ProviderCard[]) {
 }
 
 /**
+ * TCGdex is the canonical catalog, but some printings have no artwork. When a
+ * mapped TCGplayer product exists, retain a CDN URL as a real fallback instead
+ * of rendering an empty tile. This does not scrape a marketplace page or copy
+ * the asset into our storage; it only records the provider's public image URL.
+ */
+async function backfillFallbackImages(cardIds: readonly string[]) {
+  if (cardIds.length === 0) return;
+  const secondaryCases = sql.join(
+    Object.entries(SECONDARY_ART_SET_IDS).map(
+      ([setId, providerSetId]) =>
+        sql`when ${setId} then ${`https://images.pokemontcg.io/${providerSetId}/`} || regexp_replace(c.local_id, '^0+', '') || '.png'`,
+    ),
+    sql` `,
+  );
+  await db.execute(sql`
+    update card c
+    set fallback_image_url =
+      case c.set_id
+        ${secondaryCases}
+        else 'https://tcgplayer-cdn.tcgplayer.com/product/' || v.tcgplayer_product_id || '_200w.jpg'
+      end,
+      updated_at = now()
+    from (
+      select distinct on (card_id) card_id, tcgplayer_product_id
+      from card_variant
+      where tcgplayer_product_id is not null
+        and card_id = any(${sql.param([...cardIds])}::text[])
+      order by card_id, is_default desc, id
+    ) v
+    where c.id = v.card_id
+      and c.image_base_url is null
+      and c.fallback_image_url is null
+  `);
+}
+
+/**
  * Translation pass.
  *
  * One request per (set, language) returns the whole set in that language, which
@@ -478,96 +524,122 @@ export async function syncTranslations(
   );
 
   for (const language of languages) {
-    const results = await mapWithConcurrency(setRows, env.SYNC_CONCURRENCY, async (row) =>
-      provider.getSetTranslation(row.id, language),
-    );
+    let translatedSets = 0;
+    let translatedCards = 0;
+    let absentSets = 0;
+    let failedSets = 0;
+    let processedSets = 0;
 
-    const setRowsToWrite: (typeof setTranslation.$inferInsert)[] = [];
-    const cardRowsToWrite: (typeof cardTranslation.$inferInsert)[] = [];
-    const localisedSetIds: string[] = [];
+    for (const setBatch of chunk(setRows, TRANSLATION_BATCH)) {
+      const results = await mapWithConcurrency(setBatch, env.SYNC_CONCURRENCY, async (row) =>
+        provider.getSetTranslation(row.id, language),
+      );
 
-    for (const result of results) {
-      if (!result.ok) {
-        await ctx.fail('translation', `${result.item.id}:${language}`, 'Fetch failed', result.error);
-        continue;
-      }
-      const translation = result.value;
-      if (!translation) continue; // not printed in this language
+      const setRowsToWrite: (typeof setTranslation.$inferInsert)[] = [];
+      const cardRowsToWrite: (typeof cardTranslation.$inferInsert)[] = [];
+      const localisedSetIds: string[] = [];
 
-      localisedSetIds.push(translation.setId);
-      setRowsToWrite.push({
-        setId: translation.setId,
-        language,
-        name: translation.name,
-        logoUrl: translation.logoUrl ?? null,
-        symbolUrl: translation.symbolUrl ?? null,
-        cardCountOfficial: translation.cardCountOfficial ?? null,
-        cardCountTotal: translation.cardCountTotal ?? null,
-      });
+      for (const result of results) {
+        if (!result.ok) {
+          failedSets += 1;
+          ctx.bump(`translations.${language}.failed`);
+          await ctx.fail('translation', `${result.item.id}:${language}`, 'Fetch failed', result.error);
+          continue;
+        }
+        const translation = result.value;
+        if (!translation) {
+          absentSets += 1;
+          ctx.bump(`translations.${language}.absent`);
+          continue; // not printed in this language
+        }
 
-      for (const c of translation.cards) {
-        // A translation for a card we have never ingested would violate the FK;
-        // skip it and let the next catalog pass pick the card up.
-        if (!knownCardIds.has(c.cardId)) continue;
-        cardRowsToWrite.push({
-          cardId: c.cardId,
+        translatedSets += 1;
+        localisedSetIds.push(translation.setId);
+        setRowsToWrite.push({
+          setId: translation.setId,
           language,
-          name: c.name,
-          localId: c.localId ?? null,
-          imageBaseUrl: c.imageBaseUrl ?? null,
+          name: translation.name,
+          logoUrl: translation.logoUrl ?? null,
+          symbolUrl: translation.symbolUrl ?? null,
+          cardCountOfficial: translation.cardCountOfficial ?? null,
+          cardCountTotal: translation.cardCountTotal ?? null,
         });
+
+        for (const c of translation.cards) {
+          // A translation for a card we have never ingested would violate the FK;
+          // skip it and let the next catalog pass pick the card up.
+          if (!knownCardIds.has(c.cardId)) continue;
+          cardRowsToWrite.push({
+            cardId: c.cardId,
+            language,
+            name: c.name,
+            localId: c.localId ?? null,
+            imageBaseUrl: c.imageBaseUrl ?? null,
+          });
+        }
       }
-    }
 
-    for (const batch of chunk(setRowsToWrite)) {
-      if (batch.length === 0) continue;
-      await db
-        .insert(setTranslation)
-        .values(batch)
-        .onConflictDoUpdate({
-          target: [setTranslation.setId, setTranslation.language],
-          set: {
-            name: sql`excluded.name`,
-            logoUrl: sql`excluded.logo_url`,
-            symbolUrl: sql`excluded.symbol_url`,
-            cardCountOfficial: sql`excluded.card_count_official`,
-            cardCountTotal: sql`excluded.card_count_total`,
-          },
-        });
-    }
-
-    for (const batch of chunk(cardRowsToWrite)) {
-      if (batch.length === 0) continue;
-      await db
-        .insert(cardTranslation)
-        .values(batch)
-        .onConflictDoUpdate({
-          target: [cardTranslation.cardId, cardTranslation.language],
-          set: {
-            name: sql`excluded.name`,
-            localId: sql`excluded.local_id`,
-            imageBaseUrl: sql`excluded.image_base_url`,
-          },
-        });
-    }
-
-    if (localisedSetIds.length > 0) {
-      for (const batch of chunk(localisedSetIds, 200)) {
+      for (const rows of chunk(setRowsToWrite)) {
+        if (rows.length === 0) continue;
         await db
-          .update(set)
-          .set({
-            languages: sql`array(select distinct unnest(${set.languages} || array[${language}]::card_language[]))`,
-          })
-          .where(inArray(set.id, batch));
+          .insert(setTranslation)
+          .values(rows)
+          .onConflictDoUpdate({
+            target: [setTranslation.setId, setTranslation.language],
+            set: {
+              name: sql`excluded.name`,
+              logoUrl: sql`excluded.logo_url`,
+              symbolUrl: sql`excluded.symbol_url`,
+              cardCountOfficial: sql`excluded.card_count_official`,
+              cardCountTotal: sql`excluded.card_count_total`,
+            },
+          });
       }
+
+      for (const rows of chunk(cardRowsToWrite)) {
+        if (rows.length === 0) continue;
+        await db
+          .insert(cardTranslation)
+          .values(rows)
+          .onConflictDoUpdate({
+            target: [cardTranslation.cardId, cardTranslation.language],
+            set: {
+              name: sql`excluded.name`,
+              localId: sql`excluded.local_id`,
+              imageBaseUrl: sql`excluded.image_base_url`,
+            },
+          });
+      }
+
+      if (localisedSetIds.length > 0) {
+        for (const rows of chunk(localisedSetIds, 200)) {
+          await db
+            .update(set)
+            .set({
+              languages: sql`array(select distinct unnest(${set.languages} || array[${language}]::card_language[]))`,
+            })
+            .where(inArray(set.id, rows));
+        }
+      }
+
+      translatedCards += cardRowsToWrite.length;
+      processedSets += setBatch.length;
+      ctx.bump(`translations.${language}.sets`, localisedSetIds.length);
+      ctx.bump(`translations.${language}.cards`, cardRowsToWrite.length);
+      ctx.log.info('translations.batch_done', {
+        language,
+        sets: localisedSetIds.length,
+        cards: cardRowsToWrite.length,
+        remaining: Math.max(0, setRows.length - processedSets),
+      });
     }
 
-    ctx.bump(`translations.${language}.sets`, localisedSetIds.length);
-    ctx.bump(`translations.${language}.cards`, cardRowsToWrite.length);
     ctx.log.info('translations.language_done', {
       language,
-      sets: localisedSetIds.length,
-      cards: cardRowsToWrite.length,
+      sets: translatedSets,
+      cards: translatedCards,
+      absent: absentSets,
+      failed: failedSets,
     });
   }
 

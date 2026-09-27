@@ -9,12 +9,26 @@ import {
 } from '@/lib/pricing/links';
 import { TcgdexCardmarketProvider, TcgdexTcgplayerProvider } from '@/providers/pricing/tcgdex';
 import type { PriceableVariant } from '@/providers/pricing/types';
-import { cardImage } from '@/lib/images';
+import { cardImage, pokemonTcgImageUrl, tcgplayerImageUrl } from '@/lib/images';
 import { assessFraming, READY_FRAMES } from '@/lib/scan/framing';
 import { readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { SUBSET_PARENT, parentSetId, setIdWithSubsets } from '@/lib/catalog/subsets';
 import { nameKey } from '@/server/sync/sealed';
+
+describe('catalog artwork fallbacks', () => {
+  it('builds a CDN image URL from a mapped TCGplayer product', () => {
+    expect(tcgplayerImageUrl('12345')).toBe(
+      'https://tcgplayer-cdn.tcgplayer.com/product/12345_200w.jpg',
+    );
+    expect(tcgplayerImageUrl('12345', 'high')).toContain('_in_1000x1000.jpg');
+  });
+
+  it('uses only verified secondary ids for missing McDonald artwork', () => {
+    expect(pokemonTcgImageUrl('2021swsh', '04')).toBe('https://images.pokemontcg.io/mcd21/4.png');
+    expect(pokemonTcgImageUrl('2018sm', '1')).toBeNull();
+  });
+});
 
 describe('card number ordering', () => {
   it('orders plain numbers numerically, not lexically', () => {

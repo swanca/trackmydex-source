@@ -9,6 +9,8 @@ import { QuantityStepper } from './QuantityStepper';
 import { SetMark } from '@/components/sets/SetMark';
 import { cn } from '@/lib/cn';
 import { collectionCardHref } from '@/lib/collection-links';
+import { VariantChip } from '@/components/ui/Badge';
+import type { VariantType } from '@/db/schema/enums';
 
 type Filter = 'all' | 'owned' | 'missing';
 type Sort = 'number' | 'price-asc' | 'price-desc';
@@ -155,7 +157,16 @@ export function SetGroup({
                 <Link href={collectionCardHref(href, language)} className="block">
                   <CardArt imageBaseUrl={card.imageBaseUrl} alt={name} sizes="160px" />
                   <p className="mt-1.5 truncate text-[0.75rem] font-medium text-paper">{name}</p>
-                  <p className="type-code truncate text-faint">{card.localId}</p>
+                  <div className="mt-0.5 flex items-center gap-1.5">
+                    <p className="type-code truncate text-faint">{card.localId}</p>
+                    {owned ? (
+                      <VariantChip
+                        variant={(card as GroupedCard).variantType as VariantType}
+                        label={variantLabel((card as GroupedCard).variantType)}
+                        className="px-1.5 py-0 text-[0.5625rem]"
+                      />
+                    ) : null}
+                  </div>
                   {price ? <p className="tnum text-[0.75rem] font-semibold text-mint">{formatMoney(price, locale)}</p> : null}
                 </Link>
                 {variantId ? (
@@ -179,4 +190,17 @@ export function SetGroup({
       </div>
     </details>
   );
+}
+
+function variantLabel(value: string): string {
+  return {
+    normal: 'Normal',
+    holo: 'Holo',
+    reverse: 'Reverse',
+    firstEdition: '1st',
+    firstEditionHolo: '1st Holo',
+    unlimited: 'Unlimited',
+    wPromo: 'Promo',
+    other: 'Other',
+  }[value] ?? value;
 }

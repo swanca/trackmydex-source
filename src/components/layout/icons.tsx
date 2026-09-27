@@ -66,6 +66,17 @@ export function SearchIcon(props: IconProps) {
   );
 }
 
+/** A small guide/bookmark glyph for the public tutorial. */
+export function GuideIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M5 4.5h9.5A2.5 2.5 0 0 1 17 7v12.5H7a2 2 0 0 1-2-2V4.5Z" />
+      <path d="M17 7h2v12.5H9" />
+      <path d="M8 8h5M8 11.5h5" />
+    </svg>
+  );
+}
+
 export function UserIcon(props: IconProps) {
   return (
     <svg {...base} {...props}>
@@ -166,12 +177,17 @@ export function XIcon(props: IconProps) {
 
 export function RedditIcon(props: IconProps) {
   return (
-    <svg {...base} {...props}>
-      <circle cx="12" cy="13" r="7" />
-      <circle cx="9" cy="12" r="1" fill="currentColor" stroke="none" />
-      <circle cx="15" cy="12" r="1" fill="currentColor" stroke="none" />
-      <path d="M9 16c1.6 1 4.4 1 6 0M13 6l1-3 3 1" />
-      <circle cx="19" cy="7" r="1.5" />
+    <svg viewBox="0 0 24 24" aria-hidden {...props}>
+      <circle cx="12" cy="12" r="11" fill="#ff4500" />
+      <g fill="none" stroke="white" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.45">
+        <path d="M6.3 13.2c0-2.5 2.55-4.45 5.7-4.45s5.7 1.95 5.7 4.45-2.55 4.45-5.7 4.45-5.7-1.95-5.7-4.45Z" />
+        <path d="M9.25 15.2c1.35.9 4.15.9 5.5 0M12.9 8.8l.75-3.25 2.8.65" />
+        <circle cx="17.45" cy="6.55" r="1.35" />
+        <circle cx="5.45" cy="10.75" r="1.35" />
+        <circle cx="18.55" cy="10.75" r="1.35" />
+      </g>
+      <circle cx="9.55" cy="12.65" r=".85" fill="white" />
+      <circle cx="14.45" cy="12.65" r=".85" fill="white" />
     </svg>
   );
 }

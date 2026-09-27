@@ -8,6 +8,7 @@ import {
   BinderIcon,
   BoxIcon,
   GearIcon,
+  GuideIcon,
   HeartIcon,
   HomeIcon,
   SearchIcon,
@@ -16,6 +17,7 @@ import {
 } from './icons';
 import { LogoMark } from './Logo';
 import { KoFiLink } from './KoFiLink';
+import { WhatnotLink } from './WhatnotLink';
 
 /**
  * Desktop navigation.
@@ -40,6 +42,7 @@ export function DesktopRail({
     profile: string;
     admin: string;
     signIn: string;
+    tutorial: string;
   };
   isAdmin: boolean;
   signedIn: boolean;
@@ -53,12 +56,14 @@ export function DesktopRail({
         </span>
       </Link>
       <KoFiLink />
+      <WhatnotLink />
 
       <nav aria-label={labels.home} className="flex flex-1 flex-col gap-1">
         <RailItem href="/" label={labels.home} icon={<HomeIcon className="size-5" />} exact />
         <RailItem href="/sets" label={labels.sets} icon={<SetsIcon className="size-5" />} />
         <RailItem href="/sealed" label={labels.sealed} icon={<BoxIcon className="size-5" />} />
         <RailItem href="/search" label={labels.search} icon={<SearchIcon className="size-5" />} />
+        <RailItem href="/tutorial" label={labels.tutorial} icon={<GuideIcon className="size-5" />} />
         <RailItem
           href="/collection"
           label={labels.collection}

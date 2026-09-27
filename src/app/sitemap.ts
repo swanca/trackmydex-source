@@ -2,7 +2,7 @@ import type { MetadataRoute } from 'next';
 import { unstable_cache } from 'next/cache';
 import { count } from 'drizzle-orm';
 import { db } from '@/db';
-import { card, set } from '@/db/schema';
+import { card, sealedProduct, set } from '@/db/schema';
 import { APP_ORIGIN, sitemapAlternates } from '@/lib/seo';
 
 export const dynamic = 'force-dynamic';
@@ -37,14 +37,38 @@ const loadSets = unstable_cache(
   { revalidate: 86_400 },
 );
 
+const loadSealedCount = unstable_cache(
+  async () => Number((await db.select({ value: count() }).from(sealedProduct))[0]?.value ?? 0),
+  ['public-sitemap-sealed-count'],
+  { revalidate: 86_400 },
+);
+
+const loadSealedChunk = unstable_cache(
+  async (offset: number) =>
+    db
+      .select({ id: sealedProduct.id, updatedAt: sealedProduct.updatedAt })
+      .from(sealedProduct)
+      .orderBy(sealedProduct.id)
+      .limit(SITEMAP_CHUNK_SIZE)
+      .offset(offset),
+  ['public-sitemap-sealed-chunk'],
+  { revalidate: 86_400 },
+);
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [cardCount, sets] = await Promise.all([loadCardCount(), loadSets()]);
+  const [cardCount, sets, sealedCount] = await Promise.all([loadCardCount(), loadSets(), loadSealedCount()]);
   const chunks = await Promise.all(
     Array.from({ length: Math.ceil(cardCount / SITEMAP_CHUNK_SIZE) }, (_, index) =>
       loadCardChunk(index * SITEMAP_CHUNK_SIZE),
     ),
   );
   const cards = chunks.flat();
+  const sealedChunks = await Promise.all(
+    Array.from({ length: Math.ceil(sealedCount / SITEMAP_CHUNK_SIZE) }, (_, index) =>
+      loadSealedChunk(index * SITEMAP_CHUNK_SIZE),
+    ),
+  );
+  const sealed = sealedChunks.flat();
 
   const entry = (path: string, lastModified?: Date): MetadataRoute.Sitemap[number] => ({
     url: `${APP_ORIGIN}/en${path}`,
@@ -57,8 +81,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     entry('/sets'),
     entry('/top'),
     entry('/sealed'),
+    entry('/scan'),
+    entry('/tutorial'),
     entry('/methodology'),
     ...sets.map((item) => entry(`/sets/${encodeURIComponent(item.id)}`, item.updatedAt)),
     ...cards.map((item) => entry(`/cards/${encodeURIComponent(item.id)}`, item.updatedAt)),
+    ...sealed.map((item) => entry(`/sealed/${encodeURIComponent(item.id)}`, item.updatedAt)),
   ];
 }

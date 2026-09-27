@@ -17,7 +17,6 @@ import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/States';
 import { Progress } from '@/components/ui/Progress';
 import { Breakdown } from '@/components/dashboard/Breakdown';
-import { ValueChart } from '@/components/dashboard/ValueChart';
 import { CardRailItem } from '@/components/cards/CardTile';
 import { SetRow } from '@/components/sets/SetRow';
 import { SearchLauncher } from '@/components/search/SearchLauncher';
@@ -25,6 +24,8 @@ import { FeaturedRail } from '@/components/home/FeaturedRail';
 import { getFeaturedRails } from '@/server/services/featured';
 import type { Currency } from '@/db/schema/enums';
 import { APP_ORIGIN, localizedAlternates } from '@/lib/seo';
+import { portfolioChange, preparePortfolioHistory } from '@/lib/portfolio/history';
+import { intlLocale } from '@/lib/intl-locale';
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
   const { locale } = await params;
@@ -60,6 +61,13 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
   ]);
 
   const empty = summary.totalCards === 0;
+  const comparableHistory = preparePortfolioHistory(history, {
+    date: new Date().toISOString().slice(0, 10),
+    value: summary.totalValue.minor / 100,
+    currency: summary.currency,
+    totalCards: summary.totalCards,
+  });
+  const valueChange = portfolioChange(comparableHistory);
 
   return (
     <>
@@ -77,11 +85,18 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
           />
           <div className="relative">
             <p className="type-eyebrow">{t('home.totalValue')}</p>
-            <p className="type-hero accent-gradient tnum mt-1.5">
-              {formatMoney(summary.totalValue, locale, {
-                compact: summary.totalValue.minor > 10_000_000,
-              })}
-            </p>
+            <div className="mt-1.5 flex flex-wrap items-baseline gap-3">
+              <p className="type-hero accent-gradient tnum">
+                {formatMoney(summary.totalValue, locale, {
+                  compact: summary.totalValue.minor > 10_000_000,
+                })}
+              </p>
+              {valueChange !== null ? <span className={`tnum text-sm font-semibold ${valueChange >= 0 ? 'text-mint' : 'text-rose'}`}>
+                {valueChange >= 0 ? '+' : ''}{new Intl.NumberFormat(intlLocale(locale), {
+                  style: 'percent', maximumFractionDigits: 1,
+                }).format(valueChange)}
+              </span> : null}
+            </div>
             <p className="type-meta mt-2 text-xs">{t('home.totalValueNote')}</p>
 
             <dl className="mt-5 grid grid-cols-3 gap-4 border-t border-hairline pt-4">
@@ -347,6 +362,7 @@ async function SignedOutHome({
         )}
 
         <Surface className="p-5">
+          <p className="mb-3 text-[0.875rem] font-semibold text-mint">{t('home.communityProof')}</p>
           <p className="type-meta max-w-[56ch] text-[0.9375rem]">{t('home.signedOutBody')}</p>
           <div className="mt-4 flex flex-wrap gap-3">
             <Link href="/auth/sign-up">
