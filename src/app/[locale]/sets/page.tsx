@@ -7,12 +7,13 @@ import { getPortfolioSummary } from '@/server/services/portfolio';
 import { addMoney, type Money } from '@/lib/pricing/money';
 import { PageHeader, PageSection } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/ui/States';
-import { EraHeader, SetRow } from '@/components/sets/SetRow';
+import { EraHeader, SetRow, SetShowcaseCard } from '@/components/sets/SetRow';
 import { SetSearch } from '@/components/sets/SetSearch';
 import { EraDisclosure } from '@/components/sets/EraDisclosure';
 import { eraLabel, type EraTranslator } from '@/lib/catalog/eras';
 import { FEATURED_SET_IDS, isJapanOnly } from '@/lib/catalog/featured-sets';
 import { localizedAlternates } from '@/lib/seo';
+import { CatalogTabs } from '@/components/catalog/CatalogTabs';
 
 export async function generateMetadata({
   params,
@@ -136,11 +137,12 @@ export default async function SetsPage({
   return (
     <>
       <PageHeader
-        title={t('sets.title')}
+        title={t('nav.catalog')}
         eyebrow={t('sets.subtitle', { count: sets.length, eras: eras.length })}
       />
 
       <PageSection>
+        <CatalogTabs active="sets" labels={{ sets: t('nav.sets'), sealed: t('nav.sealed') }} />
         <SetSearch
           sets={sets.map((set) => ({
             id: set.id,
@@ -160,9 +162,9 @@ export default async function SetsPage({
                   <h2 className="type-title">{t('sets.featured')}</h2>
                   <p className="type-meta text-[0.8125rem]">{t('sets.featuredHint')}</p>
                 </div>
-                <ul className="space-y-2">
+                <ul className="grid grid-cols-2 gap-3 lg:grid-cols-3">
                   {featured.map((set) => (
-                    <SetRow
+                    <SetShowcaseCard
                       key={set.id}
                       set={set}
                       locale={locale}

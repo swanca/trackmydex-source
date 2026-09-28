@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/Badge';
 import { SyncControls } from '@/components/admin/SyncControls';
 import { MappingEditor } from '@/components/admin/MappingEditor';
 import { formatDateTime } from '@/lib/dates';
+import { Link } from '@/i18n/routing';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,6 +44,21 @@ export default async function AdminPage({
       <PageHeader title={t('admin.title')} eyebrow={t('admin.subtitle')} />
 
       <PageSection className="space-y-8">
+        <section>
+          <SectionHeader title="Calibration du scanner" eyebrow="Privé · administrateur uniquement" />
+          <Surface className="flex flex-wrap items-center justify-between gap-3">
+            <p className="type-meta max-w-[52ch] text-[0.8125rem]">
+              Lance une campagne sur ton téléphone. Les photos sont prises automatiquement et conservées uniquement pour régler la reconnaissance.
+            </p>
+            <Link
+              href="/admin/calibration"
+              className="rounded-[var(--radius-pill)] bg-[rgb(139_92_246/0.18)] px-4 py-2 text-[0.8125rem] font-semibold text-[#c4b5fd] transition-colors hover:bg-[rgb(139_92_246/0.28)]"
+            >
+              Ouvrir la calibration
+            </Link>
+          </Surface>
+        </section>
+
         {/* The nightly dumps sit on the same disk as the database they
             protect, which is no protection against losing the machine. */}
         <section>

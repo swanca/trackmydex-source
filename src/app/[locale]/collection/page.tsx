@@ -3,7 +3,7 @@ import { Link } from '@/i18n/routing';
 import { requireUser } from '@/lib/session';
 import { resolvePreferences } from '@/lib/user-prefs';
 import { formatMoney, formatNumber } from '@/lib/pricing/money';
-import { getPortfolioSummary } from '@/server/services/portfolio';
+import { getPortfolioHistory, getPortfolioSummary } from '@/server/services/portfolio';
 import { listOwnedSealed } from '@/server/services/sealed';
 import { getFxRates } from '@/server/services/fx';
 import { PageHeader, PageSection } from '@/components/layout/PageHeader';
@@ -12,10 +12,12 @@ import { EmptyState } from '@/components/ui/States';
 import { OwnedSealedList } from '@/components/sealed/OwnedSealedList';
 import { SetGroup } from '@/components/collection/SetGroup';
 import { listCollectionBySet } from '@/server/services/collection-groups';
-import { SearchLauncher } from '@/components/search/SearchLauncher';
 import { ShareCollection } from '@/components/collection/ShareCollection';
+import { ValueChart } from '@/components/dashboard/ValueChart';
 import { getCollectionShare } from '@/server/services/collection-share';
 import { APP_ORIGIN } from '@/lib/seo';
+import { preparePortfolioHistory } from '@/lib/portfolio/history';
+import { CollectionTabs } from '@/components/collection/CollectionTabs';
 
 export default async function CollectionPage({
   params,
@@ -28,13 +30,20 @@ export default async function CollectionPage({
   const t = await getTranslations();
   const user = await requireUser(locale, '/collection');
   const prefs = resolvePreferences(user, locale);
-  const [summary, sealed, grouped, rates, initialShare] = await Promise.all([
+  const [summary, sealed, grouped, rates, initialShare, history] = await Promise.all([
     getPortfolioSummary(user.id, prefs.displayCurrency),
     listOwnedSealed(user.id, { sort: 'value', limit: 100, language: prefs.displayLanguage }),
     listCollectionBySet(user.id, prefs.displayLanguage, prefs.displayCurrency),
     getFxRates(),
-    getCollectionShare(user.id),
+  getCollectionShare(user.id),
+    getPortfolioHistory(user.id, 365),
   ]);
+  const comparableHistory = preparePortfolioHistory(history, {
+    date: new Date().toISOString().slice(0, 10),
+    value: summary.totalValue.minor / 100,
+    currency: summary.currency,
+    totalCards: summary.totalCards,
+  });
 
   if (summary.totalCards === 0 && sealed.total === 0) {
     return (
@@ -94,7 +103,7 @@ export default async function CollectionPage({
       />
 
       <PageSection className="space-y-4">
-        <SearchLauncher />
+        <CollectionTabs active="collection" labels={{ collection: t('nav.collection'), wishlist: t('nav.wishlist') }} />
 
         <div className="surface-flat flex items-baseline justify-between gap-4 rounded-[var(--radius-tile)] px-4 py-3">
           <div>
@@ -108,8 +117,22 @@ export default async function CollectionPage({
           </p>
         </div>
 
+        <section>
+          <h2 className="mb-2 font-display text-base font-bold text-paper">
+            {t('home.valueOverTime')}
+          </h2>
+          <ValueChart
+            points={comparableHistory}
+            currency={prefs.displayCurrency}
+            locale={locale}
+            emptyTitle={t('home.valueOverTimeEmpty')}
+            emptyBody={t('home.valueOverTimeEmptyBody')}
+            showInventoryEvents
+          />
+        </section>
+
         <div className="space-y-2">
-            {grouped.main.map((group, index) => (
+            {grouped.main.map((group) => (
               <SetGroup
                 key={group.setId}
                 group={group}
@@ -124,7 +147,7 @@ export default async function CollectionPage({
                   add: t('collection.increment'), remove: t('collection.decrement'), quantity: t('card.quantity'),
                   loading: t('app.loading'), error: t('app.error'), empty: t('sets.empty'),
                 }}
-                defaultOpen={index === 0}
+                defaultOpen={false}
               />
             ))}
 

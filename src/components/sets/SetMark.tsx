@@ -4,11 +4,9 @@ import { setLogo } from '@/lib/images';
 /**
  * A set's visual identity, with a guaranteed fallback.
  *
- * TCGdex has no logo for 242 of the 388 sets we carry, almost all of them
- * Japanese, and the asset does not exist under any locale - it is missing
- * upstream, not mis-addressed. Official set logos could be taken from
- * elsewhere, but they are copyrighted artwork and rehosting them is not
- * something to do quietly.
+ * TCGdex omits many Japanese logos. Verified local overrides cover the sets
+ * for which a source match exists; the typographic badge remains the safe
+ * fallback for every ambiguous or genuinely missing asset.
  *
  * So a set without a logo gets a typographic badge built from what we do
  * have: its official abbreviation, or failing that the start of its id. Every
@@ -33,7 +31,7 @@ export function SetMark({
   // The catalogue stores a base URL with no extension - passing it straight
   // to an img tag 404s, and the browser then paints the alt text, which is
   // how a set logo slot ended up showing a wrapped, clipped set name.
-  const image = setLogo(logoUrl) ?? setLogo(symbolUrl) ?? null;
+  const image = setLogo(logoUrl, setId) ?? setLogo(symbolUrl) ?? null;
 
   if (image) {
     return (

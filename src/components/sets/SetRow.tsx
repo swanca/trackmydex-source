@@ -91,7 +91,7 @@ export function SetRow({
   locale: string;
   labels: { progress: string; release: string; value: string };
 }) {
-  const logo = setLogo(set.logoUrl);
+  const logo = setLogo(set.logoUrl, set.id);
   const complete = set.ownedCount >= set.cardCountTotal && set.cardCountTotal > 0;
 
   return (
@@ -158,6 +158,65 @@ export function SetRow({
                 100%
               </span>
             ) : null}
+          </div>
+        </div>
+      </Link>
+    </li>
+  );
+}
+
+/** Large, image-led entry used for the curated Catalogue landing grid. */
+export function SetShowcaseCard({
+  set,
+  locale,
+  labels,
+}: {
+  set: SetRowData;
+  locale: string;
+  labels: { progress: string; release: string; value: string };
+}) {
+  const logo = setLogo(set.logoUrl, set.id);
+
+  return (
+    <li>
+      <Link
+        href={`/sets/${encodeURIComponent(set.id)}`}
+        className="surface-flat group block min-h-48 overflow-hidden rounded-[var(--radius-card)] transition-transform duration-200 hover:-translate-y-0.5 hover:border-hairline-strong"
+      >
+        <div className="relative flex h-32 items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_25%_15%,rgb(139_92_246/0.22),transparent_48%),radial-gradient(circle_at_85%_80%,rgb(59_130_246/0.2),transparent_52%),var(--color-ink-soft)] p-5 sm:h-36">
+          <div aria-hidden className="absolute inset-0 opacity-30 [background-image:linear-gradient(115deg,transparent_35%,rgb(255_255_255/0.06)_50%,transparent_65%)]" />
+          {logo ? (
+            <Image
+              src={logo}
+              alt=""
+              width={220}
+              height={100}
+              sizes="(max-width: 640px) 40vw, 220px"
+              className="relative max-h-24 w-auto max-w-full object-contain drop-shadow-[0_8px_18px_rgb(0_0_0/0.65)] transition-transform duration-200 group-hover:scale-[1.03]"
+            />
+          ) : (
+            <span className="relative font-display text-3xl font-extrabold text-muted">
+              {set.code ?? set.id.slice(0, 4).toUpperCase()}
+            </span>
+          )}
+        </div>
+
+        <div className="space-y-2 p-3.5">
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="line-clamp-2 text-sm leading-tight font-bold text-paper sm:text-base">
+              {set.name}
+            </h3>
+            <CountReadout owned={set.ownedCount} total={set.cardCountTotal} className="shrink-0 text-xs" />
+          </div>
+          <Progress
+            owned={set.ownedCount}
+            total={set.cardCountTotal}
+            label={labels.progress}
+            size="sm"
+          />
+          <div className="flex min-h-5 items-center gap-2 text-[0.6875rem] text-faint">
+            {set.releaseDate ? <time dateTime={set.releaseDate}>{formatMonthYear(set.releaseDate, locale)}</time> : null}
+            {set.value ? <span className="tnum ml-auto text-mint">{formatMoney(set.value, locale, { compact: set.value.minor > 100_000 })}</span> : null}
           </div>
         </div>
       </Link>

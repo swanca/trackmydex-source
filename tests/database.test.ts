@@ -166,6 +166,65 @@ describe('constraints', () => {
   });
 });
 
+describe('scanner calibration storage', () => {
+  it('bounds a campaign and completes a numbered capture set', async () => {
+    const campaign = await db.query<{ id: string }>(`
+      insert into calibration_campaign (created_by, target_count)
+      values ('u1', 2)
+      returning id
+    `);
+    const id = campaign.rows[0]!.id;
+
+    await db.exec(`
+      insert into calibration_capture
+        (campaign_id, sequence, image, image_mime, image_width, image_height,
+         image_size, fingerprint, metrics, candidates, device)
+      values
+        ('${id}', 1, decode('ffd8ffd9', 'hex'), 'image/jpeg', 720, 1008,
+         4, '0123456789abcdef0123456789abcdef', '{}', '[]', '{}'),
+        ('${id}', 2, decode('ffd8ffd9', 'hex'), 'image/jpeg', 720, 1008,
+         4, 'fedcba9876543210fedcba9876543210', '{}', '[]', '{}')
+    `);
+    await db.exec(`
+      update calibration_campaign set status = 'complete', completed_at = now()
+      where id = '${id}'
+    `);
+
+    const progress = await db.query<{ count: number; status: string }>(`
+      select count(cc.id)::int as count, max(c.status) as status
+      from calibration_campaign c
+      left join calibration_capture cc on cc.campaign_id = c.id
+      where c.id = '${id}'
+    `);
+    expect(progress.rows[0]).toMatchObject({ count: 2, status: 'complete' });
+  });
+
+  it('rejects duplicate sequences and removes captures with their campaign', async () => {
+    const campaign = await db.query<{ id: string }>(`
+      insert into calibration_campaign (created_by, target_count)
+      values ('u1', 3)
+      returning id
+    `);
+    const id = campaign.rows[0]!.id;
+    const insert = () => db.exec(`
+      insert into calibration_capture
+        (campaign_id, sequence, image, image_mime, image_width, image_height,
+         image_size, fingerprint, metrics, candidates, device)
+      values
+        ('${id}', 1, decode('ffd8ffd9', 'hex'), 'image/jpeg', 720, 1008,
+         4, '0123456789abcdef0123456789abcdef', '{}', '[]', '{}')
+    `);
+    await insert();
+    await expect(insert()).rejects.toThrow();
+
+    await db.exec(`delete from calibration_campaign where id = '${id}'`);
+    const left = await db.query<{ count: number }>(`
+      select count(*)::int as count from calibration_capture where campaign_id = '${id}'
+    `);
+    expect(left.rows[0]!.count).toBe(0);
+  });
+});
+
 describe('one-tap quantity upsert', () => {
   it('inserts then increments the same stack rather than duplicating it', async () => {
     const upsert = (delta: number) => db.exec(`

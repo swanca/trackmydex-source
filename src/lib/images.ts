@@ -19,6 +19,13 @@ export type ImageQuality = 'low' | 'high';
  */
 const LOCAL_ASSET_BASE = process.env.NEXT_PUBLIC_ASSET_BASE_URL ?? '';
 
+/** Temporary artwork supplied by the site owner while the catalog source is incomplete. */
+const LOCAL_CARD_OVERRIDES: Readonly<Record<string, string>> = {
+  'https://assets.tcgdex.net/en/me/30th/R': '/card-overrides/30th-R.jpg',
+  'https://assets.tcgdex.net/en/me/30th/G': '/card-overrides/30th-G.jpg',
+  'https://assets.tcgdex.net/en/me/30th/B': '/card-overrides/30th-B.jpg',
+};
+
 /**
  * A TCGplayer product image, whose size lives in the filename.
  *
@@ -28,6 +35,33 @@ const LOCAL_ASSET_BASE = process.env.NEXT_PUBLIC_ASSET_BASE_URL ?? '';
  */
 const SIZED_TCGPLAYER_IMAGE =
   /^(https:\/\/tcgplayer-cdn\.tcgplayer\.com\/product\/\d+)_[a-z0-9_]+\.(jpe?g|png)$/i;
+
+/** Build the public TCGplayer CDN image used when the primary catalog has no art. */
+export function tcgplayerImageUrl(productId: string | number, quality: ImageQuality = 'low'): string {
+  const suffix = quality === 'low' ? '200w' : 'in_1000x1000';
+  return `https://tcgplayer-cdn.tcgplayer.com/product/${encodeURIComponent(String(productId))}_${suffix}.jpg`;
+}
+
+/**
+ * Explicit secondary-art mappings for McDonald's printings. Only provider set
+ * ids verified to exist are listed; unknown sets return no URL rather than a
+ * plausible-looking broken image.
+ */
+export const SECONDARY_ART_SET_IDS: Readonly<Record<string, string>> = {
+  '2011bw': 'mcd11',
+  '2012bw': 'mcd12',
+  '2016xy': 'mcd16',
+  '2019sm': 'mcd19',
+  '2021swsh': 'mcd21',
+  '2022swsh': 'mcd22',
+};
+
+export function pokemonTcgImageUrl(setId: string, localId: string): string | null {
+  const providerSetId = SECONDARY_ART_SET_IDS[setId];
+  const number = localId.replace(/^0+/, '');
+  if (!providerSetId || !/^\d+$/.test(number)) return null;
+  return `https://images.pokemontcg.io/${providerSetId}/${number}.png`;
+}
 
 export function cardImage(
   baseUrl: string | null | undefined,
@@ -40,6 +74,9 @@ export function cardImage(
     return `${LOCAL_ASSET_BASE.replace(/\/$/, '')}/${language}/${cardId}.${extension}`;
   }
   if (!baseUrl) return null;
+
+  const localOverride = LOCAL_CARD_OVERRIDES[baseUrl];
+  if (localOverride) return localOverride;
 
   /**
    * TCGplayer fallbacks carry their size in the filename, so honour quality.
@@ -74,8 +111,9 @@ export function cardImage(
   return `${baseUrl}/${quality}.${extension}`;
 }
 
-export function setLogo(baseUrl: string | null | undefined): string | null {
-  return baseUrl ? `${baseUrl}.png` : null;
+export function setLogo(baseUrl: string | null | undefined, setId?: string): string | null {
+  const local = setId ? LOCAL_SET_LOGOS[setId.toLowerCase()] : null;
+  return local ?? (baseUrl ? `${baseUrl}.png` : null);
 }
 
 /**
@@ -99,3 +137,4 @@ export const GRID_IMAGE_SIZES =
   '(min-width: 1280px) 18vw, (min-width: 1024px) 22vw, (min-width: 640px) 30vw, 44vw';
 
 export const DETAIL_IMAGE_SIZES = '(min-width: 1024px) 420px, 88vw';
+import { LOCAL_SET_LOGOS } from './catalog/local-set-logos.generated';

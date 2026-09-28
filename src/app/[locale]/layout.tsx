@@ -77,6 +77,7 @@ export default async function LocaleLayout({
     collection: t('nav.collection'),
     search: t('nav.search'),
     sets: t('nav.sets'),
+    catalog: t('nav.catalog'),
     sealed: t('nav.sealed'),
     wishlist: t('nav.wishlist'),
     scan: t('nav.scan'),
@@ -130,7 +131,7 @@ export default async function LocaleLayout({
           </div>
 
           {/* "Produits scellés" does not fit a seventh of a phone. */}
-          <BottomNav labels={{ ...navLabels, sealed: t('nav.sealedShort') }} />
+          <BottomNav labels={navLabels} />
 
           <ServiceWorkerRegistrar />
 

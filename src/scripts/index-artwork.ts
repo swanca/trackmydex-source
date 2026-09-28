@@ -29,10 +29,10 @@ async function main() {
   const force = Boolean(args.force);
   const setId = typeof args.set === 'string' ? args.set : null;
 
-  const targets = await db.execute<{ id: string; image_base_url: string }>(sql`
-    select id, image_base_url
+  const targets = await db.execute<{ id: string; image_base_url: string | null; fallback_image_url: string | null }>(sql`
+    select id, image_base_url, fallback_image_url
     from card
-    where image_base_url is not null
+    where coalesce(image_base_url, fallback_image_url) is not null
       ${force ? sql`` : sql`and image_phash is null`}
       ${setId ? sql`and set_id = ${setId}` : sql``}
     order by id
@@ -66,7 +66,9 @@ async function main() {
   }
 
   const results = await mapWithConcurrency(rows, concurrency, async (row) => {
-    const source = `${row.image_base_url}/low.webp`;
+    // TCGdex stores a base URL, while provider fallbacks are complete image
+    // URLs. Do not append `/low.webp` to the latter.
+    const source = row.image_base_url ? `${row.image_base_url}/low.webp` : row.fallback_image_url!;
     const response = await fetch(source);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
@@ -99,7 +101,7 @@ async function main() {
   const coverage = await db.execute<{ total: number; hashed: number }>(sql`
     select count(*)::int as total,
            count(image_phash)::int as hashed
-    from card where image_base_url is not null
+    from card where coalesce(image_base_url, fallback_image_url) is not null
   `);
 
   logger.info('scan-index.done', {

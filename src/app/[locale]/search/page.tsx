@@ -82,7 +82,7 @@ export default async function SearchPage({
                 <p className="type-eyebrow mb-2">{t('search.setsTab')}</p>
                 <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                   {setResults.map((set) => {
-                    const logo = setLogo(set.logoUrl);
+                    const logo = setLogo(set.logoUrl, set.id);
                     return (
                       <li key={set.id}>
                         <Link
@@ -130,6 +130,7 @@ export default async function SearchPage({
                         imageBaseUrl: hit.imageBaseUrl,
                         rarity: hit.rarity,
                         quantity: hit.quantity,
+                        defaultVariantQuantity: hit.defaultVariantQuantity,
                         wishlisted: hit.wishlisted,
                         variants: hit.variants,
                         defaultVariantId: hit.defaultVariantId,

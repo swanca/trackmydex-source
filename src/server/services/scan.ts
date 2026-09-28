@@ -197,7 +197,7 @@ export async function matchFingerprint(
 export async function getScanIndexStats(): Promise<{ total: number; hashed: number }> {
   const rows = await db.execute<SqlRow<{ total: number; hashed: number }>>(sql`
     select count(*)::int as total, count(image_phash)::int as hashed
-    from card where image_base_url is not null
+    from card where coalesce(image_base_url, fallback_image_url) is not null
   `);
   const row = rows.rows[0];
   return { total: Number(row?.total ?? 0), hashed: Number(row?.hashed ?? 0) };

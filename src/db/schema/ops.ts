@@ -1,14 +1,25 @@
 import {
+  check,
+  customType,
   index,
   integer,
   jsonb,
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
   varchar,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 import { syncKindEnum, syncStatusEnum } from './enums';
+import { user } from './auth';
+
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({
+  dataType() {
+    return 'bytea';
+  },
+});
 
 /**
  * Operations layer: everything the admin area reads.
@@ -76,3 +87,55 @@ export const appSetting = pgTable('app_setting', {
   value: jsonb('value').notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+/** Private admin-owned sessions used to tune the scanner against real phone photos. */
+export const calibrationCampaign = pgTable(
+  'calibration_campaign',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    createdBy: text('created_by')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    targetCount: integer('target_count').notNull(),
+    status: varchar('status', { length: 16 }).notNull().default('active'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+  },
+  (t) => [
+    index('calibration_campaign_owner_idx').on(t.createdBy, t.createdAt.desc()),
+    check('calibration_campaign_target_range', sql`${t.targetCount} between 1 and 500`),
+    check('calibration_campaign_status_valid', sql`${t.status} in ('active', 'complete')`),
+  ],
+);
+
+/**
+ * A deliberately bounded JPEG/WebP crop plus the measurements that produced it.
+ * IP addresses and ordinary users' scans never enter this table.
+ */
+export const calibrationCapture = pgTable(
+  'calibration_capture',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    campaignId: uuid('campaign_id')
+      .notNull()
+      .references(() => calibrationCampaign.id, { onDelete: 'cascade' }),
+    sequence: integer('sequence').notNull(),
+    image: bytea('image').notNull(),
+    imageMime: varchar('image_mime', { length: 24 }).notNull(),
+    imageWidth: integer('image_width').notNull(),
+    imageHeight: integer('image_height').notNull(),
+    imageSize: integer('image_size').notNull(),
+    fingerprint: varchar('fingerprint', { length: 32 }).notNull(),
+    metrics: jsonb('metrics').notNull(),
+    candidates: jsonb('candidates').notNull().default([]),
+    device: jsonb('device').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('calibration_capture_sequence_idx').on(t.campaignId, t.sequence),
+    index('calibration_capture_campaign_idx').on(t.campaignId, t.createdAt),
+    check('calibration_capture_sequence_positive', sql`${t.sequence} > 0`),
+    check('calibration_capture_image_size_range', sql`${t.imageSize} between 1 and 750000`),
+    check('calibration_capture_mime_valid', sql`${t.imageMime} in ('image/jpeg', 'image/webp')`),
+  ],
+);

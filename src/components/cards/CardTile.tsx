@@ -15,6 +15,7 @@ export interface CardTileData {
   imageBaseUrl: string | null;
   rarity: string | null;
   quantity: number;
+  defaultVariantQuantity: number;
   wishlisted: boolean;
   variants?: Array<{ id: string; variantType: string; size: string; price: Money | null }>;
   defaultVariantId: string | null;
@@ -109,6 +110,7 @@ export async function CardTile({
           language={cardLanguage}
           locale={locale}
           owned={card.quantity}
+          defaultVariantQuantity={card.defaultVariantQuantity}
           wishlisted={card.wishlisted}
           variants={card.variants ?? []}
           labels={{
@@ -123,6 +125,8 @@ export async function CardTile({
             variantNames: Object.fromEntries(
               VARIANT_TYPES.map((type) => [type, t(`variant.${type}` as never)]),
             ),
+            decrement: t('collection.decrement'),
+            quantity: t('card.quantity'),
           }}
         />
       ) : null}

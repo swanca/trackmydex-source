@@ -1,10 +1,11 @@
-import { sql } from 'drizzle-orm';
+import { sql, type SQL } from 'drizzle-orm';
 import { db } from '@/db';
 import type { CardLanguage, Currency, PriceConfidence } from '@/db/schema/enums';
 import type { Money } from '@/lib/pricing/money';
 import type { CardTileVariant } from './catalog';
 import { getFxRates } from './fx';
 import { SUBSET_IDS } from '@/lib/catalog/subsets';
+import { normalizeSearchText, normalizeSearchToken, numberSearchTokens } from '@/lib/search/normalize';
 
 /**
  * Global search.
@@ -61,6 +62,7 @@ export interface SearchHit {
   setName: string;
   setCode: string | null;
   quantity: number;
+  defaultVariantQuantity: number;
   wishlisted: boolean;
   variants: CardTileVariant[];
   defaultVariantId: string | null;
@@ -98,7 +100,8 @@ export async function searchCards(
   // Matching is per word (below); ranking still looks at the whole phrase,
   // so an exact title typed in full outranks a card that merely contains
   // each of its words somewhere.
-  const prefix = `${trimmed}%`;
+  const normalizedQuery = normalizeSearchText(trimmed);
+  const prefix = `${normalizedQuery}%`;
 
   /**
    * Every word has to match something, but each may match a different thing.
@@ -112,39 +115,56 @@ export async function searchCards(
    *
    * Capped at six words so a pasted sentence cannot build an enormous query.
    */
-  const tokens = trimmed.split(/\s+/).filter(Boolean).slice(0, 6);
+  const tokens = trimmed
+    .split(/\s+/)
+    .map((token) => ({ raw: token, value: normalizeSearchToken(token) }))
+    .filter((token) => token.value.length > 0)
+    .slice(0, 6);
+  if (tokens.length === 0) return { hits: [], total: 0 };
 
-  const conditions = tokens.map((token) => {
-    const like = `%${token}%`;
-    const prefix = `${token}%`;
+  // PostgreSQL does the same normalization as the browser. `unaccent` is
+  // enabled by the bootstrap migration; stripping punctuation makes
+  // `Mew-VMAX` and `Mew VMAX` hit the same indexed search surface.
+  const normalizedField = (field: SQL) =>
+    sql`regexp_replace(unaccent(lower(${field})), '[^a-z0-9]', '', 'g')`;
+
+  const conditions = tokens.map(({ raw, value }) => {
+    const like = `%${value}%`;
+    const tokenPrefix = `${value}%`;
     // "025/165" is one word to a person and two numbers to a database; the
     // part before the slash is the collector number.
-    const numberPart = token.split('/')[0] ?? token;
+    const numberCandidates = numberSearchTokens(raw)
+      .map((candidate) => normalizeSearchToken(candidate))
+      .filter((candidate) => /^\d+$/.test(candidate));
+    const localId = normalizedField(sql`c.local_id`);
+    const numberMatches = numberCandidates.map(
+      (candidate) => sql`nullif(ltrim(${localId}, '0'), '') = ${String(Number(candidate))}`,
+    );
 
     return sql`(
-      c.name ilike ${like}
-      or ct.name ilike ${like}
+      ${normalizedField(sql`c.name`)} ilike ${like}
+      or ${normalizedField(sql`ct.name`)} ilike ${like}
       -- Match a printed name in ANY language, not just the one being
       -- displayed. Without this a French collector on an English UI cannot
       -- find "Dracaufeu". Display still uses the chosen language; only
       -- matching is language-agnostic.
       or exists (
         select 1 from card_translation tx
-        where tx.card_id = c.id and tx.name ilike ${like}
+        where tx.card_id = c.id and ${normalizedField(sql`tx.name`)} ilike ${like}
       )
       -- Prefix rather than equality, so "TG" finds TG01 through TG30 and
       -- "SWSH" finds the promo run.
-      or c.local_id ilike ${prefix}
-      or c.local_id = ${numberPart}
-      or c.illustrator ilike ${like}
-      or c.rarity ilike ${like}
-      or s.name ilike ${like}
-      or s.id ilike ${prefix}
-      or s.code ilike ${token}
-      or se.name ilike ${like}
+      or ${localId} ilike ${tokenPrefix}
+      ${numberMatches.length > 0 ? sql`or ${sql.join(numberMatches, sql` or `)}` : sql``}
+      or ${normalizedField(sql`c.illustrator`)} ilike ${like}
+      or ${normalizedField(sql`c.rarity`)} ilike ${like}
+      or ${normalizedField(sql`s.name`)} ilike ${like}
+      or ${normalizedField(sql`s.id`)} ilike ${tokenPrefix}
+      or ${normalizedField(sql`s.code`)} ilike ${like}
+      or ${normalizedField(sql`se.name`)} ilike ${like}
       or exists (
         select 1 from set_translation sx
-        where sx.set_id = s.id and sx.name ilike ${like}
+        where sx.set_id = s.id and ${normalizedField(sql`sx.name`)} ilike ${like}
       )
     )`;
   });
@@ -204,6 +224,7 @@ export async function searchCards(
         where wi.user_id = ${userId} and wi.card_id = c.id
       ) as "wishlisted",
       dv.id as "defaultVariantId",
+      dv.quantity as "defaultVariantQuantity",
       -- Same reasoning as the set grid: a reverse holo is a different card
       -- to own and a different price, so the choice has to reach the tile.
       (
@@ -228,15 +249,15 @@ export async function searchCards(
       pr.currency as "priceCurrency",
       pr.confidence as "priceConfidence",
       (
-        case when lower(coalesce(ct.name, c.name)) = lower(${trimmed}) then 100
-             when c.local_id = ${trimmed} then 90
-             when coalesce(ct.name, c.name) ilike ${prefix} then 70
+      case when ${normalizedField(sql`coalesce(ct.name, c.name)`)} = ${normalizedQuery} then 100
+             when ${normalizedField(sql`c.local_id`)} = ${normalizedQuery} then 90
+             when ${normalizedField(sql`coalesce(ct.name, c.name)`)} ilike ${prefix} then 70
              when exists (
                     select 1 from card_translation tx
-                    where tx.card_id = c.id and lower(tx.name) = lower(${trimmed})
+                    where tx.card_id = c.id and ${normalizedField(sql`tx.name`)} = ${normalizedQuery}
                   ) then 85
-             when c.illustrator ilike ${prefix} then 40
-             when s.name ilike ${prefix} then 30
+             when ${normalizedField(sql`c.illustrator`)} ilike ${prefix} then 40
+             when ${normalizedField(sql`s.name`)} ilike ${prefix} then 30
              else 10 end
       )::int as "rank",
       count(*) over ()::int as "total"
@@ -246,7 +267,10 @@ export async function searchCards(
     left join set_translation st on st.set_id = s.id and st.language = ${cardLanguage}
     left join card_translation ct on ct.card_id = c.id and ct.language = ${cardLanguage}
     left join lateral (
-      select v.id from card_variant v where v.card_id = c.id
+      select v.id,
+             coalesce((select sum(ci.quantity)::int from collection_item ci
+                       where ci.user_id = ${userId} and ci.card_variant_id = v.id), 0) as quantity
+      from card_variant v where v.card_id = c.id
       order by v.is_default desc, v.variant_type limit 1
     ) dv on true
     left join card_best_price bp on bp.card_id = c.id
@@ -277,6 +301,7 @@ export async function searchCards(
     setName: row.setName,
     setCode: row.setCode,
     quantity: Number(row.quantity),
+    defaultVariantQuantity: Number(row.defaultVariantQuantity ?? 0),
     wishlisted: Boolean(row.wishlisted),
     variants: ((row as unknown as { variants: RawVariant[] | null }).variants ?? []).map(
       (variant) => ({
@@ -315,7 +340,11 @@ function convert(
 export async function searchSets(query: string, cardLanguage: CardLanguage, limit = 12) {
   const trimmed = query.trim();
   if (!trimmed) return [];
-  const like = `%${trimmed}%`;
+  const normalized = normalizeSearchText(trimmed);
+  if (!normalized) return [];
+  const like = `%${normalized}%`;
+  const normalizedField = (field: SQL) =>
+    sql`regexp_replace(unaccent(lower(${field})), '[^a-z0-9]', '', 'g')`;
 
   const result = await db.execute<{
     id: string;
@@ -333,7 +362,10 @@ export async function searchSets(query: string, cardLanguage: CardLanguage, limi
     from set s
     join series se on se.id = s.series_id
     left join set_translation st on st.set_id = s.id and st.language = ${cardLanguage}
-    where (s.name ilike ${like} or st.name ilike ${like} or s.id ilike ${like} or s.code ilike ${trimmed})
+    where (${normalizedField(sql`s.name`)} ilike ${like}
+       or ${normalizedField(sql`st.name`)} ilike ${like}
+       or ${normalizedField(sql`s.id`)} ilike ${like}
+       or ${normalizedField(sql`s.code`)} ilike ${like})
       -- A Trainer Gallery is part of its set, not a result beside it.
       and s.id <> all(${sql.param(SUBSET_IDS)}::text[])
     order by s.release_date desc nulls last

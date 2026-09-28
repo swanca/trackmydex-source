@@ -15,6 +15,7 @@ import { getEnabledPricingProviders, getPayloadSource } from '@/providers/pricin
 import type { PriceQuote, PriceableVariant } from '@/providers/pricing/types';
 import type { ProviderCard } from '@/providers/catalog/types';
 import { variantId } from './catalog';
+import { refreshBestPrices } from './best-prices';
 import type { SyncContext } from './run';
 
 /**
@@ -235,6 +236,12 @@ export async function syncPrices(ctx: SyncContext, options: PriceSyncOptions = {
       }
     }
   }
+
+  // Price pages read the materialised best-price table. Rebuild it in the same
+  // job so a successful daily refresh is visible immediately, not only after a
+  // later catalog sync or container restart.
+  const bestPrices = await refreshBestPrices();
+  ctx.bump('bestPrices', bestPrices);
 
   return ctx.stats;
 }

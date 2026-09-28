@@ -81,4 +81,4 @@ export function assessFraming(
  * way past, and the scanner would grab it mid-blur. Two consecutive reads
  * roughly a third of a second apart mean the phone has actually settled.
  */
-export const READY_FRAMES = 2;
+export const READY_FRAMES = 3;

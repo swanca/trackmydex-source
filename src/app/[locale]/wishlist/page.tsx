@@ -14,6 +14,7 @@ import { Badge, ConfidenceMark, LanguageChip } from '@/components/ui/Badge';
 import { EmptyState } from '@/components/ui/States';
 import { ExternalIcon } from '@/components/layout/icons';
 import { WishlistRemoveButton } from '@/components/collection/WishlistRemoveButton';
+import { CollectionTabs } from '@/components/collection/CollectionTabs';
 
 /**
  * Wishlist.
@@ -47,7 +48,8 @@ export default async function WishlistPage({
     return (
       <>
         <PageHeader title={t('wishlist.title')} />
-        <PageSection>
+        <PageSection className="space-y-4">
+          <CollectionTabs active="wishlist" labels={{ collection: t('nav.collection'), wishlist: t('nav.wishlist') }} />
           <EmptyState
             title={t('wishlist.empty')}
             body={t('wishlist.emptyBody')}
@@ -70,6 +72,7 @@ export default async function WishlistPage({
       />
 
       <PageSection className="space-y-4">
+        <CollectionTabs active="wishlist" labels={{ collection: t('nav.collection'), wishlist: t('nav.wishlist') }} />
         <div className="surface-flat flex items-baseline justify-between gap-4 rounded-[var(--radius-tile)] px-4 py-3">
           <p className="type-eyebrow">{t('wishlist.totalTarget')}</p>
           <p className="tnum font-display text-lg font-bold">

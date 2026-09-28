@@ -96,6 +96,7 @@ export function CardEntryEditor({
   const [saving, startSaving] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [onWishlist, setOnWishlist] = useState(wishlisted);
+  const primaryEntry = entries[0] ?? null;
 
   const [form, setForm] = useState({
     variantId: variants[0]?.id ?? '',
@@ -261,6 +262,44 @@ export function CardEntryEditor({
         >
           {onWishlist ? labels.wishlistRemove : labels.wishlistAdd}
         </Button>
+      </div>
+
+      <div
+        data-card-sticky-action
+        className="fixed inset-x-3 z-30 flex min-h-16 items-center gap-3 rounded-2xl border border-hairline-strong bg-[color-mix(in_srgb,var(--color-slate)_96%,transparent)] p-2.5 shadow-[0_18px_50px_-18px_rgb(0_0_0/0.95)] backdrop-blur-xl lg:hidden"
+        style={{ bottom: 'calc(var(--nav-height) + var(--safe-bottom) + 8px)' }}
+      >
+        <button
+          type="button"
+          onClick={() => primaryEntry ? openEdit(primaryEntry) : openNew()}
+          className="min-h-11 min-w-0 flex-1 rounded-xl px-2 text-left hover:bg-[rgb(148_163_208/0.06)]"
+        >
+          <p className="truncate text-sm font-semibold text-paper">
+            {primaryEntry
+              ? variants.find((variant) => variant.id === primaryEntry.variantId)?.label
+              : variants[0]?.label}
+          </p>
+          <p className="type-meta truncate text-[0.6875rem]">
+            {primaryEntry
+              ? `${labelFor(languages, primaryEntry.language)} · ${labelFor(conditions, primaryEntry.condition)}`
+              : `${labelFor(languages, defaultLanguage)} · ${labelFor(conditions, 'near_mint')}`}
+          </p>
+        </button>
+
+        {primaryEntry ? (
+          <QuantityStepper
+            cardVariantId={primaryEntry.variantId}
+            language={primaryEntry.language}
+            condition={primaryEntry.condition}
+            quantity={primaryEntry.quantity}
+            labels={{ add: labels.increment, remove: labels.decrement, count: labels.count }}
+            className="w-[116px] shrink-0"
+          />
+        ) : (
+          <Button onClick={openNew} className="min-w-28 shrink-0">
+            {labels.add}
+          </Button>
+        )}
       </div>
 
       <Sheet

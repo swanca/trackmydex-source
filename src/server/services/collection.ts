@@ -4,6 +4,7 @@ import { db, type SqlRow } from '@/db';
 import { card, cardVariant, collectionItem, sealedItem, wishlistItem } from '@/db/schema';
 import { CARD_LANGUAGES, CONDITIONS, CURRENCIES } from '@/db/schema/enums';
 import { logger } from '@/lib/logger';
+import { normalizeSearchText, numberSearchTokens } from '@/lib/search/normalize';
 
 /**
  * Collection mutations.
@@ -431,8 +432,18 @@ export async function listCollection(
   if (filters.variantType?.length) conditions.push(sql`v.variant_type = any(${sql.param(filters.variantType)}::variant_type[])`);
   if (filters.rarity?.length) conditions.push(sql`c.rarity = any(${sql.param(filters.rarity)}::text[])`);
   if (filters.search) {
-    const like = `%${filters.search}%`;
-    conditions.push(sql`(c.name ilike ${like} or ct.name ilike ${like} or c.local_id = ${filters.search})`);
+    const needle = normalizeSearchText(filters.search);
+    if (!needle) return { rows: [], total: 0 };
+    const like = `%${needle}%`;
+    const localTokens = numberSearchTokens(filters.search).map((token) => normalizeSearchText(token));
+    const localMatch = localTokens.length
+      ? sql`regexp_replace(unaccent(lower(c.local_id)), '[^a-z0-9]', '', 'g') = any(${sql.param(localTokens)}::text[])`
+      : sql`false`;
+    conditions.push(sql`(
+      regexp_replace(unaccent(lower(c.name)), '[^a-z0-9]', '', 'g') ilike ${like}
+      or regexp_replace(unaccent(lower(ct.name)), '[^a-z0-9]', '', 'g') ilike ${like}
+      or ${localMatch}
+    )`);
   }
   if (filters.minPrice !== undefined) conditions.push(sql`coalesce(pr.market, 0) >= ${filters.minPrice}`);
   if (filters.maxPrice !== undefined) conditions.push(sql`coalesce(pr.market, 0) <= ${filters.maxPrice}`);

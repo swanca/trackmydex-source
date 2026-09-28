@@ -10,6 +10,7 @@ import { Pagination } from '@/components/ui/Pagination';
 import { SealedTile } from '@/components/sealed/SealedTile';
 import { SealedFilters } from '@/components/sealed/SealedFilters';
 import { localizedAlternates } from '@/lib/seo';
+import { CatalogTabs } from '@/components/catalog/CatalogTabs';
 
 export async function generateMetadata({
   params,
@@ -74,9 +75,10 @@ export default async function SealedPage({
 
   return (
     <>
-      <PageHeader title={t('sealed.title')} eyebrow={t('sealed.subtitle', { count: total })} />
+      <PageHeader title={t('nav.catalog')} eyebrow={t('sealed.subtitle', { count: total })} />
 
       <PageSection>
+        <CatalogTabs active="sealed" labels={{ sets: t('nav.sets'), sealed: t('nav.sealed') }} />
         <SealedFilters
           kinds={facets.kinds.map((k) => ({
             value: k.value,

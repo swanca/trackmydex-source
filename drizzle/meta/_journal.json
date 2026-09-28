@@ -50,6 +50,13 @@
       "when": 1790012047367,
       "tag": "0006_salty_vision",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790512136638,
+      "tag": "0007_orange_scarlet_witch",
+      "breakpoints": true
     }
   ]
 }

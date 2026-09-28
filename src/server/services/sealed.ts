@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { db, type SqlRow } from '@/db';
 import { SEALED_KINDS, SEALED_STATES } from '@/db/schema/enums';
 import { logger } from '@/lib/logger';
+import { normalizeSearchText } from '@/lib/search/normalize';
 import { NotFoundError } from './collection';
 
 /**
@@ -183,6 +184,43 @@ export interface SealedBrowseRow {
   total: number;
 }
 
+export interface SealedDetail extends SealedBrowseRow {
+  sourceProductId: number;
+}
+
+/** One sealed product fiche, used by the browse tile and shareable detail URL. */
+export async function getSealedProduct(
+  userId: string | null,
+  productId: string,
+  language = 'en',
+): Promise<SealedDetail | null> {
+  const result = await db.execute<SqlRow<SealedDetail>>(sql`
+    select
+      p.id, p.source_product_id as "sourceProductId", p.name, p.kind, p.language,
+      p.source_group_name as "groupName", st.name as "setLabel", p.set_id as "setId",
+      p.image_url as "imageUrl", p.product_url as "productUrl",
+      p.released_on::text as "releasedOn", pr.market::text as "marketPrice",
+      pr.currency as "marketCurrency", coalesce(owned.quantity, 0)::int as "ownedQuantity",
+      count(*) over ()::int as total
+    from sealed_product p
+    left join set_translation st on st.set_id = p.set_id and st.language = ${language}::card_language
+    left join lateral (
+      select market, currency from sealed_price
+      where sealed_product_id = p.id and market is not null
+      order by fetched_at desc
+      limit 1
+    ) pr on true
+    left join lateral (
+      select sum(quantity) as quantity from sealed_item
+      where sealed_product_id = p.id and user_id = ${userId ?? null}
+    ) owned on ${userId ? sql`true` : sql`false`}
+    where p.id = ${productId}
+    limit 1
+  `);
+  const row = result.rows[0];
+  return row ? { ...row, ownedQuantity: Number(row.ownedQuantity) } : null;
+}
+
 /**
  * Browse the sealed catalogue.
  *
@@ -196,13 +234,19 @@ export async function browseSealed(
   const conditions = [sql`true`];
 
   if (filters.search) {
-    const like = `%${filters.search}%`;
+    const needle = normalizeSearchText(filters.search);
+    if (needle.length === 0) return { rows: [], total: 0 };
+    const like = `%${needle}%`;
     // Product names come from TCGplayer and are English only, so searching
     // them alone means "Origine Perdue" finds nothing while "Lost Origin"
     // works. The linked set's translated name is what makes the reader's own
     // language searchable.
     conditions.push(
-      sql`(p.name ilike ${like} or p.source_group_name ilike ${like} or st.name ilike ${like})`,
+      sql`(
+        regexp_replace(unaccent(lower(p.name)), '[^a-z0-9]', '', 'g') ilike ${like}
+        or regexp_replace(unaccent(lower(p.source_group_name)), '[^a-z0-9]', '', 'g') ilike ${like}
+        or regexp_replace(unaccent(lower(st.name)), '[^a-z0-9]', '', 'g') ilike ${like}
+      )`,
     );
   }
   if (filters.kind?.length) {

@@ -161,10 +161,10 @@ export function ShareCollection({
                 </a>
               ))}
               <button type="button" onClick={shareOrCopy} className="surface-flat flex min-h-16 flex-col items-center justify-center gap-1 rounded-xl px-2 text-[0.6875rem] text-muted hover:text-paper">
-                <InstagramIcon className="size-5" />{labels.instagram}
+                <InstagramIcon className="size-5 text-[#e4405f]" />{labels.instagram}
               </button>
               <button type="button" onClick={shareOrCopy} className="surface-flat flex min-h-16 flex-col items-center justify-center gap-1 rounded-xl px-2 text-[0.6875rem] text-muted hover:text-paper">
-                <DiscordIcon className="size-5" />{labels.discord}
+                <DiscordIcon className="size-5 text-[#5865f2]" />{labels.discord}
               </button>
             </div>
 
@@ -182,8 +182,8 @@ export function ShareCollection({
 
 function SocialIcon({ id }: { id: ShareDestinationId }) {
   const className = 'size-5';
-  if (id === 'email') return <MailIcon className={className} />;
-  if (id === 'facebook') return <FacebookIcon className={className} />;
-  if (id === 'x') return <XIcon className={className} />;
+  if (id === 'email') return <MailIcon className={`${className} text-[#4285f4]`} />;
+  if (id === 'facebook') return <FacebookIcon className={`${className} text-[#1877f2]`} />;
+  if (id === 'x') return <XIcon className={`${className} text-paper`} />;
   return <RedditIcon className={className} />;
 }

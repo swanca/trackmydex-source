@@ -105,6 +105,12 @@ function handleError(cause: unknown): NextResponse {
   if (cause instanceof Error && cause.name === 'SyncLockedError') {
     return error(cause.message, 409);
   }
+  if (cause instanceof Error && cause.name === 'CalibrationClosedError') {
+    return error(cause.message, 409);
+  }
+  if (cause instanceof Error && cause.name === 'CalibrationInputError') {
+    return error(cause.message, 422);
+  }
 
   logger.captureException(cause, { where: 'route-handler' });
   return error('Something went wrong', 500);

@@ -1,9 +1,10 @@
-import { sql } from 'drizzle-orm';
+import { sql, type SQL } from 'drizzle-orm';
 import { db, type SqlRow } from '@/db';
 import type { CardLanguage, Condition, Currency, PriceConfidence, VariantType } from '@/db/schema/enums';
 import type { Money } from '@/lib/pricing/money';
 import { valueStack, pickPrice, type StoredPrice } from '@/lib/pricing/select';
 import { SUBSET_IDS, SUBSET_PAIRS, parentSetId, setIdWithSubsets } from '@/lib/catalog/subsets';
+import { normalizeSearchText, normalizeSearchToken, numberSearchTokens } from '@/lib/search/normalize';
 import { getFxRates } from './fx';
 
 /**
@@ -361,6 +362,7 @@ export interface CardTile {
   setId: string;
   setName: string;
   quantity: number;
+  defaultVariantQuantity: number;
   /** On this user's wishlist, in the language they are browsing. */
   wishlisted: boolean;
   defaultVariantId: string | null;
@@ -407,6 +409,7 @@ interface CardTileRow {
   setId: string;
   setName: string;
   quantity: number;
+  defaultVariantQuantity: number;
   wishlisted: boolean;
   defaultVariantId: string | null;
   defaultVariantType: VariantType | null;
@@ -451,24 +454,37 @@ export async function listCards(query: CardQuery): Promise<{ cards: CardTile[]; 
   }
   if (rarity?.length) conditions.push(sql`c.rarity = any(${sql.param(rarity)}::text[])`);
   if (search) {
-    const like = `%${search}%`;
-    conditions.push(
-      sql`(
-        c.name ilike ${like}
-        or ct.name ilike ${like}
-        -- Match a printed name in any language: a French collector browsing
-        -- an English set should still find "Dracaufeu".
-        or exists (
+    const normalizedQuery = normalizeSearchText(search);
+    const tokens = search
+      .split(/\s+/)
+      .map((token) => ({ raw: token, value: normalizeSearchToken(token) }))
+      .filter((token) => token.value.length > 0)
+      .slice(0, 6);
+    const normalizedField = (field: SQL) =>
+      sql`regexp_replace(unaccent(lower(${field})), '[^a-z0-9]', '', 'g')`;
+    const tokenConditions = tokens.map(({ raw, value }) => {
+      const like = `%${value}%`;
+      const prefix = `${value}%`;
+      const localId = normalizedField(sql`c.local_id`);
+      const numberMatches = numberSearchTokens(raw)
+        .map((candidate) => normalizeSearchToken(candidate))
+        .filter((candidate) => /^\d+$/.test(candidate))
+        .map((candidate) => sql`nullif(ltrim(${localId}, '0'), '') = ${String(Number(candidate))}`);
+      return sql`(
+        ${normalizedField(sql`c.name`)} ilike ${like}
+        or ${normalizedField(sql`ct.name`)} ilike ${like}
+        ${!setId ? sql`or exists (
           select 1 from card_translation tx
-          where tx.card_id = c.id and tx.name ilike ${like}
-        )
-        -- Prefix, not equality, so "TG" finds TG01 through TG30 and "SWSH"
-        -- finds the promo run. Equality meant a number was the only thing
-        -- that ever matched, and only if typed in full.
-        or c.local_id ilike ${`${search}%`}
-        or c.rarity ilike ${like}
-        or c.illustrator ilike ${like}
-      )`,
+          where tx.card_id = c.id and ${normalizedField(sql`tx.name`)} ilike ${like}
+        )` : sql``}
+        or ${localId} ilike ${prefix}
+        ${numberMatches.length > 0 ? sql`or ${sql.join(numberMatches, sql` or `)}` : sql``}
+        or ${normalizedField(sql`c.rarity`)} ilike ${like}
+        or ${normalizedField(sql`c.illustrator`)} ilike ${like}
+      )`;
+    });
+    conditions.push(
+      tokenConditions.length > 0 ? sql.join(tokenConditions, sql` and `) : sql`false`,
     );
   }
   if (ownership === 'owned') {
@@ -510,6 +526,7 @@ export async function listCards(query: CardQuery): Promise<{ cards: CardTile[]; 
       ) as "wishlisted",
       dv.id as "defaultVariantId",
       dv.variant_type as "defaultVariantType",
+      dv.quantity as "defaultVariantQuantity",
       /**
        * Every printing of this card, so a grid can offer the choice.
        *
@@ -546,7 +563,10 @@ export async function listCards(query: CardQuery): Promise<{ cards: CardTile[]; 
     left join set_translation st on st.set_id = s.id and st.language = ${cardLanguage}
     left join card_translation ct on ct.card_id = c.id and ct.language = ${cardLanguage}
     left join lateral (
-      select v.id, v.variant_type from card_variant v
+      select v.id, v.variant_type,
+             coalesce((select sum(ci.quantity)::int from collection_item ci
+                       where ci.user_id = ${userId} and ci.card_variant_id = v.id), 0) as quantity
+      from card_variant v
       where v.card_id = c.id
       order by v.is_default desc, v.variant_type
       limit 1
@@ -579,6 +599,7 @@ export async function listCards(query: CardQuery): Promise<{ cards: CardTile[]; 
     setId: row.setId,
     setName: row.setName,
     quantity: Number(row.quantity),
+    defaultVariantQuantity: Number(row.defaultVariantQuantity ?? 0),
     wishlisted: Boolean(row.wishlisted),
     variants: (row.variants ?? []).map((variant) => ({
       id: variant.id,

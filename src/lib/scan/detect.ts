@@ -16,8 +16,8 @@
  *   1. downscale and convert to luma
  *   2. Sobel edge magnitude, then threshold
  *   3. flood-fill connected regions of *non*-edge interior
- *   4. keep regions whose bounding box matches card proportions
- *   5. return boxes in original-image coordinates
+ *   4. estimate four extreme corners and check their side proportions
+ *   5. return boxes and corners in original-image coordinates
  *
  * It is not scale-invariant magic - it wants cards that do not overlap, on a
  * background that differs from the card border. The UI says so, and always
@@ -25,6 +25,8 @@
  */
 
 export interface DetectedCard {
+  /** Clockwise corners: top-left, top-right, bottom-right, bottom-left. */
+  corners?: readonly [Point, Point, Point, Point];
   x: number;
   y: number;
   width: number;
@@ -32,6 +34,8 @@ export interface DetectedCard {
   /** 0..1 confidence from how closely the box matches card proportions. */
   score: number;
 }
+
+export interface Point { x: number; y: number }
 
 /** 63mm x 88mm. Portrait cards; the detector rejects landscape boxes. */
 const CARD_ASPECT = 63 / 88;
@@ -110,6 +114,9 @@ export function detectCards(
     let minY = h;
     let maxY = 0;
     let area = 0;
+    const corners: [Point, Point, Point, Point] = [
+      { x: w, y: h }, { x: 0, y: h }, { x: 0, y: 0 }, { x: w, y: 0 },
+    ];
 
     stack.push(start);
     labels[start] = start;
@@ -119,6 +126,10 @@ export function detectCards(
       const x = index % w;
       const y = (index - x) / w;
       area++;
+      if (x + y < corners[0].x + corners[0].y) corners[0] = { x, y };
+      if (x - y > corners[1].x - corners[1].y) corners[1] = { x, y };
+      if (x + y > corners[2].x + corners[2].y) corners[2] = { x, y };
+      if (y - x > corners[3].y - corners[3].x) corners[3] = { x, y };
       if (x < minX) minX = x;
       if (x > maxX) maxX = x;
       if (y < minY) minY = y;
@@ -147,11 +158,23 @@ export function detectCards(
     const boxHeight = maxY - minY + 1;
     const boxArea = boxWidth * boxHeight;
     if (boxArea / frameArea < minAreaRatio) continue;
+    // The outside region is not a card, even when the frame has card proportions.
+    if (minX === 0 || minY === 0 || maxX === w - 1 || maxY === h - 1) continue;
 
     // 4. Keep only card-shaped boxes that the blob actually fills - a blob
     //    spanning two cards has a bounding box it does not fill, and a blob of
     //    background is rarely 0.716 aspect.
-    const aspect = boxWidth / boxHeight;
+    const length = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
+    const top = length(corners[0], corners[1]);
+    const bottom = length(corners[3], corners[2]);
+    const left = length(corners[0], corners[3]);
+    const right = length(corners[1], corners[2]);
+    const aspect = (top + bottom) / (left + right);
+    if (!Number.isFinite(aspect) || Math.min(top, bottom, left, right) < 8) continue;
+    if (corners.some((p, i) => {
+      const q = corners[(i + 1) % 4]!, r = corners[(i + 2) % 4]!;
+      return (q.x - p.x) * (r.y - q.y) - (q.y - p.y) * (r.x - q.x) <= 0;
+    })) continue;
     const aspectError = Math.abs(aspect - CARD_ASPECT) / CARD_ASPECT;
     if (aspectError > ASPECT_TOLERANCE) continue;
 
@@ -164,6 +187,7 @@ export function detectCards(
       width: Math.round(boxWidth / scale),
       height: Math.round(boxHeight / scale),
       score: Math.max(0, 1 - aspectError / ASPECT_TOLERANCE) * fill,
+      corners: corners.map((point) => ({ x: point.x / scale, y: point.y / scale })) as [Point, Point, Point, Point],
     });
   }
 

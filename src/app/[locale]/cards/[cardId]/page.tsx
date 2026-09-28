@@ -98,11 +98,12 @@ export default async function CardPage({
       <PageHeader
         backHref={`/sets/${encodeURIComponent(card.setId)}`}
         backLabel={card.setName}
+        backMode="history"
         eyebrow={`${eraLabel(t as EraTranslator, card.eraId, card.eraName)} · ${card.seriesName}`}
         title={card.name}
       />
 
-      <PageSection className="space-y-6 lg:grid lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)] lg:items-start lg:gap-8 lg:space-y-0">
+      <PageSection className="space-y-6 pb-24 lg:grid lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)] lg:items-start lg:gap-8 lg:space-y-0 lg:pb-0">
         <div className="space-y-4">
           <div className="mx-auto max-w-[320px] lg:max-w-none">
             <CardArt

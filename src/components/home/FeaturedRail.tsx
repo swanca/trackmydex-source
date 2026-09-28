@@ -3,6 +3,7 @@ import { Link } from '@/i18n/routing';
 import type { FeaturedRail as Rail } from '@/server/services/featured';
 import { formatMoney } from '@/lib/pricing/money';
 import { CardArt } from '@/components/cards/CardArt';
+import { RailScroller } from './RailScroller';
 
 /**
  * A shelf of cards with their prices.
@@ -28,10 +29,7 @@ export async function FeaturedRail({ rail, locale }: { rail: Rail; locale: strin
         </Link>
       </div>
 
-      <ul
-        className="-mx-5 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain px-5 pb-1 lg:-mx-8 lg:px-8"
-        style={{ scrollbarWidth: 'thin' }}
-      >
+      <RailScroller label={title}>
         {rail.cards.map((card) => (
           <li
             key={card.cardId}
@@ -60,7 +58,7 @@ export async function FeaturedRail({ rail, locale }: { rail: Rail; locale: strin
             </Link>
           </li>
         ))}
-      </ul>
+      </RailScroller>
     </section>
   );
 }

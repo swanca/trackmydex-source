@@ -6,6 +6,7 @@ import { adjustQuantity, toggleWishlist } from '@/lib/api-client';
 import { adjustGuestQuantity } from '@/lib/guest-collection';
 import { cn } from '@/lib/cn';
 import { formatMoney, type Money } from '@/lib/pricing/money';
+import { QuantityStepper } from '@/components/collection/QuantityStepper';
 
 /**
  * What you can do to a card while browsing.
@@ -43,6 +44,7 @@ export function CardActions({
   language,
   locale,
   owned,
+  defaultVariantQuantity,
   wishlisted,
   variants = [],
   labels,
@@ -52,6 +54,7 @@ export function CardActions({
   language: string;
   locale: string;
   owned: number;
+  defaultVariantQuantity: number;
   wishlisted: boolean;
   /** Every printing of this card. One means no choice to make. */
   variants?: ActionVariant[];
@@ -62,6 +65,8 @@ export function CardActions({
     onWishlist: string;
     signInToWishlist: string;
     choosePrinting: string;
+    decrement: string;
+    quantity: string;
     variantNames: Record<string, string>;
   };
   className?: string;
@@ -82,6 +87,7 @@ export function CardActions({
   const pickerRef = useRef<HTMLDivElement>(null);
 
   const choices = variants.length > 1 ? variants : [];
+  const canStepDefault = choices.length === 0 || defaultVariantQuantity > 0;
 
   // Dismiss on any tap elsewhere: a menu that only closes by choosing is a
   // trap on a phone, where there is no Escape key in reach.
@@ -208,31 +214,45 @@ export function CardActions({
       ) : null}
 
       <div className="flex items-center gap-1.5">
-        <button
-          type="button"
-          onClick={() => (choices.length > 0 ? setPicking((open) => !open) : addToCollection())}
-          aria-haspopup={choices.length > 0 ? 'menu' : undefined}
-          aria-expanded={choices.length > 0 ? picking : undefined}
-          aria-label={
-            choices.length > 0
-              ? labels.choosePrinting
-              : shownCount > 0
-                ? labels.inCollection
-                : labels.addToCollection
-          }
-          title={shownCount > 0 ? labels.inCollection : labels.addToCollection}
-          className={cn(
-            'relative flex h-8 flex-1 items-center justify-center rounded-xl border transition-colors active:scale-[0.97]',
-            shownCount > 0
-              ? 'border-[rgb(139_92_246/0.45)] bg-[rgb(139_92_246/0.18)] text-[#c4b5fd]'
-              : 'border-hairline bg-[rgb(148_163_208/0.08)] text-muted hover:border-[rgb(139_92_246/0.4)] hover:bg-[rgb(139_92_246/0.14)] hover:text-paper',
-          )}
-        >
-          {shownCount > 0 ? <CheckIcon /> : <PlusIcon />}
-          {shownCount > 1 ? (
-            <span className="tnum ml-1 text-[0.6875rem] font-bold">{shownCount}</span>
-          ) : null}
-        </button>
+        {canStepDefault ? (
+          <QuantityStepper
+            cardVariantId={cardVariantId}
+            language={language}
+            quantity={defaultVariantQuantity}
+            size="sm"
+            labels={{ add: labels.addToCollection, remove: labels.decrement, count: labels.quantity }}
+            className="min-w-0 flex-1"
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => (choices.length > 0 ? setPicking((open) => !open) : addToCollection())}
+            aria-haspopup={choices.length > 0 ? 'menu' : undefined}
+            aria-expanded={choices.length > 0 ? picking : undefined}
+            aria-label={choices.length > 0 ? labels.choosePrinting : labels.addToCollection}
+            title={labels.addToCollection}
+            className={cn(
+              'relative flex h-8 flex-1 items-center justify-center rounded-xl border transition-colors active:scale-[0.97]',
+              'border-hairline bg-[rgb(148_163_208/0.08)] text-muted hover:border-[rgb(139_92_246/0.4)] hover:bg-[rgb(139_92_246/0.14)] hover:text-paper',
+            )}
+          >
+            <PlusIcon />
+          </button>
+        )}
+
+        {canStepDefault && choices.length > 0 ? (
+          <button
+            type="button"
+            onClick={() => setPicking((open) => !open)}
+            aria-haspopup="menu"
+            aria-expanded={picking}
+            aria-label={labels.choosePrinting}
+            title={labels.choosePrinting}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-hairline text-muted transition-colors hover:border-[rgb(139_92_246/0.4)] hover:text-paper"
+          >
+            <LayersIcon />
+          </button>
+        ) : null}
 
         <button
           type="button"
@@ -273,6 +293,15 @@ function CheckIcon() {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+    </svg>
+  );
+}
+
+function LayersIcon() {
+  return (
+    <svg viewBox="0 0 20 20" aria-hidden className="size-4" fill="none">
+      <path d="m10 3 7 3.5-7 3.5-7-3.5L10 3Z" stroke="currentColor" strokeWidth="1.4" />
+      <path d="m4 10 6 3 6-3M4 13.5l6 3 6-3" stroke="currentColor" strokeWidth="1.4" />
     </svg>
   );
 }

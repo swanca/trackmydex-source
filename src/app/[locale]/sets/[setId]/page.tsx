@@ -47,6 +47,7 @@ export async function generateMetadata({
   const detail = await getSetDetail(decodeURIComponent(setId), null, 'EUR', LOCALE_DEFAULT_CARD_LANGUAGE[toUiLocale(locale)]);
   if (!detail) return {};
 
+  const logo = setLogo(detail.logoUrl, detail.id);
   return {
     title: t('setTitle', { set: detail.name }),
     description: t('setDescription', {
@@ -56,7 +57,7 @@ export async function generateMetadata({
     }),
     alternates: localizedAlternates(locale, `/sets/${encodeURIComponent(setId)}`),
     openGraph: {
-      images: detail.logoUrl ? [{ url: `${detail.logoUrl}.png` }] : [],
+      images: logo ? [{ url: logo }] : [],
     },
   };
 }
@@ -130,7 +131,6 @@ export default async function SetPage({
   const uiLocale = toUiLocale(locale);
   const languageLabels = LANGUAGE_LABELS[uiLocale];
   const printedIn = detail.languages.length > 0 ? detail.languages : (['en'] as CardLanguage[]);
-  const logo = setLogo(detail.logoUrl);
   const secretCount = Math.max(detail.cardCountTotal - detail.cardCountOfficial, 0);
 
   return (
@@ -153,7 +153,7 @@ export default async function SetPage({
                 empty space here is what made the page look broken. */}
             <div className="size-[76px] shrink-0">
               <SetMark
-                logoUrl={logo}
+                logoUrl={detail.logoUrl}
                 symbolUrl={detail.symbolUrl}
                 code={detail.code}
                 setId={detail.id}

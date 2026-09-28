@@ -6,9 +6,7 @@ import { Link, usePathname, useRouter } from '@/i18n/routing';
 import { cn } from '@/lib/cn';
 import {
   BinderIcon,
-  BoxIcon,
   GearIcon,
-  HeartIcon,
   HomeIcon,
   SearchIcon,
   SetsIcon,
@@ -16,6 +14,7 @@ import {
 } from './icons';
 import { LogoMark } from './Logo';
 import { KoFiLink } from './KoFiLink';
+import { WhatnotLink } from './WhatnotLink';
 
 /**
  * Desktop navigation.
@@ -34,8 +33,7 @@ export function DesktopRail({
     home: string;
     collection: string;
     search: string;
-    sets: string;
-    sealed: string;
+    catalog: string;
     wishlist: string;
     profile: string;
     admin: string;
@@ -52,19 +50,25 @@ export function DesktopRail({
           TrackMyDex
         </span>
       </Link>
-      <KoFiLink />
+      <WhatnotLink />
+      <div className="mt-1">
+        <KoFiLink />
+      </div>
 
       <nav aria-label={labels.home} className="flex flex-1 flex-col gap-1">
         <RailItem href="/" label={labels.home} icon={<HomeIcon className="size-5" />} exact />
-        <RailItem href="/sets" label={labels.sets} icon={<SetsIcon className="size-5" />} />
-        <RailItem href="/sealed" label={labels.sealed} icon={<BoxIcon className="size-5" />} />
+        <RailItem
+          href="/sets"
+          label={labels.catalog}
+          icon={<SetsIcon className="size-5" />}
+          matchPrefixes={['/sets', '/sealed']}
+        />
         <RailItem href="/search" label={labels.search} icon={<SearchIcon className="size-5" />} />
         <RailItem
           href="/collection"
           label={labels.collection}
           icon={<BinderIcon className="size-5" />}
         />
-        <RailItem href="/wishlist" label={labels.wishlist} icon={<HeartIcon className="size-5" />} />
       </nav>
 
       <div className="flex flex-col gap-1 border-t border-hairline pt-3">
@@ -86,16 +90,20 @@ function RailItem({
   label,
   icon,
   exact,
+  matchPrefixes,
 }: {
   href: string;
   label: string;
   icon: ReactNode;
   exact?: boolean;
+  matchPrefixes?: string[];
 }) {
   const pathname = usePathname();
   const router = useRouter();
   const warmed = useRef(false);
-  const active = exact ? pathname === href : pathname.startsWith(href);
+  const active = exact
+    ? pathname === href
+    : (matchPrefixes ?? [href]).some((prefix) => pathname.startsWith(prefix));
 
   // Same reasoning as the phone bar: these routes are dynamic and cannot
   // carry a `loading.js`, so Next never prefetches them on its own.

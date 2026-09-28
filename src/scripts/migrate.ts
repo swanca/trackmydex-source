@@ -19,6 +19,7 @@ async function main() {
   // depends on it.
   logger.info('migrate.extensions');
   await db.execute(sql`create extension if not exists pg_trgm`);
+  await db.execute(sql`create extension if not exists unaccent`);
 
   logger.info('migrate.start');
   await migrate(db, { migrationsFolder: './drizzle' });

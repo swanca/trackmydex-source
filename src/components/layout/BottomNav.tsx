@@ -4,21 +4,20 @@ import type { ReactNode } from 'react';
 import { useCallback, useRef } from 'react';
 import { Link, usePathname, useRouter } from '@/i18n/routing';
 import { cn } from '@/lib/cn';
-import { BinderIcon, BoxIcon, HeartIcon, HomeIcon, SearchIcon, SetsIcon } from './icons';
+import { BinderIcon, HomeIcon, SearchIcon, SetsIcon } from './icons';
 
 /**
  * Mobile navigation.
  *
- * Six destinations with the camera raised into a centre control. Three
+ * Five destinations with the camera raised into a centre control. Three
  * constraints drive the details:
  *
  *  - it must never cover content, so the bar is opaque and every scroll
  *    container reserves `--nav-height` plus the safe-area inset beneath it;
  *  - the camera sits at the thumb's natural arc, because that is the action
  *    you take while physically holding cards;
- *  - seven slots on a 375px phone leaves 53px each, so the labels are 9px
- *    and "Produits scellés" is shortened to "Scellés" here. A label that
- *    wraps or clips is worse than a shorter word that fits.
+ *  - five slots keep each destination readable and easy to tap on a 375px
+ *    phone, while sealed products remain available inside Catalogue.
  *
  * Hidden from pointer-fine, wide viewports where the desktop rail takes over.
  */
@@ -29,9 +28,7 @@ export function BottomNav({
     home: string;
     collection: string;
     search: string;
-    sets: string;
-    sealed: string;
-    wishlist: string;
+    catalog: string;
     scan: string;
   };
 }) {
@@ -44,15 +41,18 @@ export function BottomNav({
       )}
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
     >
-      <ul className="mx-auto grid h-[var(--nav-height)] max-w-lg grid-cols-7 items-center px-1">
+      <ul className="mx-auto grid h-[var(--nav-height)] max-w-lg grid-cols-5 items-center px-2">
         <NavItem href="/" label={labels.home} icon={<HomeIcon className="size-5" />} exact />
-        <NavItem href="/sets" label={labels.sets} icon={<SetsIcon className="size-5" />} />
-        <NavItem href="/sealed" label={labels.sealed} icon={<BoxIcon className="size-5" />} />
+        <NavItem
+          href="/sets"
+          label={labels.catalog}
+          icon={<SetsIcon className="size-5" />}
+          matchPrefixes={['/sets', '/sealed']}
+        />
         <li className="flex justify-center">
           <ScanButton label={labels.scan} />
         </li>
         <NavItem href="/collection" label={labels.collection} icon={<BinderIcon className="size-5" />} />
-        <NavItem href="/wishlist" label={labels.wishlist} icon={<HeartIcon className="size-5" />} />
         <NavItem href="/search" label={labels.search} icon={<SearchIcon className="size-5" />} />
       </ul>
     </nav>
@@ -68,7 +68,7 @@ export function BottomNav({
  * fetched from cold on every tap, which is the lag you feel between
  * pressing a tab and seeing it.
  *
- * Prefetching all six on sight would be worse: six full server renders per
+ * Prefetching every destination on sight would be worse: several full server renders per
  * page view, on a machine shared with another site. Starting on
  * `pointerdown` buys the 100-200ms between touch and release, and on a
  * mouse it starts on hover, which is usually longer. Once per destination.
@@ -78,16 +78,20 @@ function NavItem({
   label,
   icon,
   exact,
+  matchPrefixes,
 }: {
   href: string;
   label: string;
   icon: ReactNode;
   exact?: boolean;
+  matchPrefixes?: string[];
 }) {
   const pathname = usePathname();
   const router = useRouter();
   const warmed = useRef(false);
-  const active = exact ? pathname === href : pathname.startsWith(href);
+  const active = exact
+    ? pathname === href
+    : (matchPrefixes ?? [href]).some((prefix) => pathname.startsWith(prefix));
 
   const warm = useCallback(() => {
     if (warmed.current || active) return;
@@ -104,12 +108,12 @@ function NavItem({
         onFocus={warm}
         aria-current={active ? 'page' : undefined}
         className={cn(
-          'flex h-14 flex-col items-center justify-center gap-0.5 rounded-xl transition-colors',
+          'flex h-14 min-h-11 flex-col items-center justify-center gap-0.5 rounded-xl transition-colors',
           active ? 'text-paper' : 'text-faint hover:text-muted',
         )}
       >
         {icon}
-        <span className="w-full truncate px-0.5 text-center text-[0.5625rem] leading-none font-medium">
+        <span className="w-full truncate px-0.5 text-center text-[0.6875rem] leading-none font-medium">
           {label}
         </span>
         <span
@@ -140,19 +144,21 @@ function NavItem({
  */
 function ScanButton({ label }: { label: string }) {
   return (
-    <Link
-      href="/scan"
-      aria-label={label}
-      className={cn(
-        'relative -mt-7 flex size-[52px] items-center justify-center rounded-full',
-        'bg-[linear-gradient(135deg,var(--color-violet),var(--color-azure))]',
-        'shadow-[0_0_0_5px_var(--color-ink),0_12px_32px_-10px_rgb(99_102_241/0.55)]',
-        'transition-transform duration-150 active:scale-95',
-      )}
-    >
-      <span className="absolute inset-[3px] rounded-full bg-[color-mix(in_srgb,var(--color-ink)_86%,transparent)]" />
-      <ScanGlyph className="relative size-6 text-paper" />
-    </Link>
+    <div className="relative flex h-14 items-center justify-center">
+      <Link
+        href="/scan"
+        aria-label={label}
+        className={cn(
+          'absolute -top-5 flex size-[56px] items-center justify-center rounded-full',
+          'bg-[linear-gradient(135deg,var(--color-violet),var(--color-azure))]',
+          'shadow-[0_0_0_5px_var(--color-ink),0_12px_32px_-10px_rgb(99_102_241/0.55)]',
+          'transition-transform duration-150 active:scale-95',
+        )}
+      >
+        <span className="absolute inset-[3px] rounded-full bg-[color-mix(in_srgb,var(--color-ink)_86%,transparent)]" />
+        <ScanGlyph className="relative size-6 text-paper" />
+      </Link>
+    </div>
   );
 }
 

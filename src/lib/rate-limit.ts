@@ -70,5 +70,9 @@ export const LIMITS = {
   mutation: { limit: 240, windowSeconds: 60 },
   csvImport: { limit: 5, windowSeconds: 600 },
   csvExport: { limit: 10, windowSeconds: 600 },
+  /** Image analysis is intentionally much tighter than text search. */
+  pregrade: { limit: 8, windowSeconds: 600 },
   adminSync: { limit: 4, windowSeconds: 600 },
+  /** Burst-friendly because a calibration campaign captures one photo every few seconds. */
+  adminCalibration: { limit: 600, windowSeconds: 600 },
 } as const satisfies Record<string, RateLimitOptions>;

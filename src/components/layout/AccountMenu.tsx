@@ -83,6 +83,10 @@ export function AccountMenu({
             <p className="truncate px-2.5 pt-1.5 pb-2 text-[0.6875rem] text-faint">{email}</p>
           ) : null}
 
+          <MenuLink href="/tutorial" onNavigate={() => setOpen(false)}>
+            {t('nav.tutorial')}
+          </MenuLink>
+
           {signedIn ? (
             <>
               <MenuLink href="/profile" onNavigate={() => setOpen(false)}>

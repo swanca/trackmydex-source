@@ -9,12 +9,26 @@ import {
 } from '@/lib/pricing/links';
 import { TcgdexCardmarketProvider, TcgdexTcgplayerProvider } from '@/providers/pricing/tcgdex';
 import type { PriceableVariant } from '@/providers/pricing/types';
-import { cardImage } from '@/lib/images';
+import { cardImage, pokemonTcgImageUrl, setLogo, tcgplayerImageUrl } from '@/lib/images';
 import { assessFraming, READY_FRAMES } from '@/lib/scan/framing';
 import { readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { SUBSET_PARENT, parentSetId, setIdWithSubsets } from '@/lib/catalog/subsets';
 import { nameKey } from '@/server/sync/sealed';
+
+describe('catalog artwork fallbacks', () => {
+  it('builds a CDN image URL from a mapped TCGplayer product', () => {
+    expect(tcgplayerImageUrl('12345')).toBe(
+      'https://tcgplayer-cdn.tcgplayer.com/product/12345_200w.jpg',
+    );
+    expect(tcgplayerImageUrl('12345', 'high')).toContain('_in_1000x1000.jpg');
+  });
+
+  it('uses only verified secondary ids for missing McDonald artwork', () => {
+    expect(pokemonTcgImageUrl('2021swsh', '04')).toBe('https://images.pokemontcg.io/mcd21/4.png');
+    expect(pokemonTcgImageUrl('2018sm', '1')).toBeNull();
+  });
+});
 
 describe('card number ordering', () => {
   it('orders plain numbers numerically, not lexically', () => {
@@ -359,6 +373,32 @@ describe('card artwork', () => {
 
   it('has nothing to show without a base URL', () => {
     expect(cardImage(null)).toBeNull();
+  });
+
+  it('uses the temporary supplied artwork for the three Mew RGB cards', () => {
+    expect(cardImage('https://assets.tcgdex.net/en/me/30th/R', 'low')).toBe(
+      '/card-overrides/30th-R.jpg',
+    );
+    expect(cardImage('https://assets.tcgdex.net/en/me/30th/G', 'high')).toBe(
+      '/card-overrides/30th-G.jpg',
+    );
+    expect(cardImage('https://assets.tcgdex.net/en/me/30th/B', 'low')).toBe(
+      '/card-overrides/30th-B.jpg',
+    );
+  });
+});
+
+describe('set logos', () => {
+  it('uses the bundled 30th logo when the catalogue has no provider logo', () => {
+    expect(setLogo(null, '30th')).toBe('/set-logos/30th.webp');
+    expect(setLogo(null, '30th-c')).toBe('/set-logos/30th.webp');
+  });
+
+  it('keeps the provider fallback for an unmapped set', () => {
+    expect(setLogo('https://assets.example.com/set-logo', 'unknown')).toBe(
+      'https://assets.example.com/set-logo.png',
+    );
+    expect(setLogo(null, 'unknown')).toBeNull();
   });
 });
 
